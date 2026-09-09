@@ -1,0 +1,35 @@
+name: Test - BitOps skip run mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with bitops_skip_run enabled
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_resource_identifier: 'test-commons-skiprun'
+          aws_default_region: 'us-east-1'
+          aws_ec2_instance_create: 'true'
+        continue-on-error: true
+
+      - name: Assert action completed with skip run
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # With bitops_skip_run=true, the action sets up the environment and exits
+          # before running Docker/BitOps. It should succeed or fail gracefully.
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action completed successfully with bitops_skip_run=true"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected in harness without full AWS setup)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

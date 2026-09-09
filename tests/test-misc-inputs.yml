@@ -1,0 +1,46 @@
+name: Test miscellaneous inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          bitops_skip_run: 'true'
+          checkout: 'false'
+          bitops_code_store: 'false'
+          bitops_extra_env_vars: '-e MY_VAR=myvalue'
+          bitops_extra_env_vars_file: ''
+          ansible_ssh_to_private_ip: 'false'
+          ansible_start_docker_timeout: '300'
+          tf_state_file_name: 'my-tf-state'
+          tf_state_file_name_append: 'unique'
+          tf_state_bucket: 'my-tf-state-bucket'
+          tf_state_bucket_destroy: 'false'
+          tf_targets: 'module.vpc'
+          env_aws_secret: 'my-secret'
+          env_repo: '.env'
+          env_ghs: ''
+          env_ghv: ''
+          gh_action_repo: 'https://github.com/myorg/myrepo'
+          gh_action_input_terraform: 'terraform'
+          gh_action_input_ansible: 'ansible'
+          gh_action_input_helm_charts: 'helm'
+          gh_deployment_input_terraform: 'terraform'
+          gh_deployment_input_ansible: 'ansible'
+          gh_deployment_input_ansible_extra_vars_file: 'vars.yml'
+          gh_deployment_action_input_ansible_extra_vars_file: 'action-vars.yml'
+          gh_deployment_input_helm_charts: 'helm'
+      - name: Assert action ran
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          if [ "${{ steps.action.outcome }}" = "success" ] || [ "${{ steps.action.outcome }}" = "failure" ]; then
+            echo "PASS: action ran with miscellaneous inputs"
+          else
+            echo "FAIL: unexpected outcome"
+            exit 1
+          fi

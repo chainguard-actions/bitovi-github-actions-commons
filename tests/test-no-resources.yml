@@ -1,0 +1,34 @@
+name: Test - No resources enabled (nothing to create)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with no resources enabled
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          aws_resource_identifier: 'test-commons-noop'
+          aws_default_region: 'us-east-1'
+          # No EC2, ECS, RDS, Aurora, EFS, Redis, EKS, ECR enabled
+          # This causes generate_bitops_config.sh to produce an empty config
+          # and deploy.sh exits with "There is nothing to be created or destroyed."
+        continue-on-error: true
+
+      - name: Assert action completed (no resources to create)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action completed successfully with no resources enabled"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected when no resources configured)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

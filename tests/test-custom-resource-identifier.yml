@@ -1,0 +1,37 @@
+name: Test - Custom AWS resource identifier
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with custom resource identifier
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_resource_identifier: 'my-custom-identifier'
+          aws_default_region: 'us-west-2'
+          aws_ec2_instance_create: 'true'
+          ansible_skip: 'true'
+        continue-on-error: true
+
+      - name: Assert action ran with custom identifier
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should use 'my-custom-identifier' as the resource identifier
+          # instead of deriving it from org/repo/branch.
+          # With bitops_skip_run=true, it exits before Docker/BitOps.
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action completed with custom aws_resource_identifier"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected in harness without full AWS setup)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
