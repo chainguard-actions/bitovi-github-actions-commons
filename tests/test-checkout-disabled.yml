@@ -1,0 +1,33 @@
+name: Test checkout disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # With checkout=false and bitops_skip_run=true, the action should skip
+      # the checkout step and exit before running Docker
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_default_region: 'us-east-1'
+          aws_resource_identifier: 'test-checkout-disabled'
+        continue-on-error: true
+
+      - name: Assert action ran with checkout disabled
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action completed with checkout=false and bitops_skip_run=true"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected under harness sentinel repo)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

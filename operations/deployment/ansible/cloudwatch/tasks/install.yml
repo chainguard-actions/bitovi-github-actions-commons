@@ -1,0 +1,35 @@
+- name: Check provided Docker Cloudwatch config
+  ansible.builtin.find:
+    paths: "{{ app_install_root }}/{{ app_repo_name }}"
+    recurse: no
+    patterns: 'docker-daemon.json'
+  register: file_status_d
+
+- name: Create the docker config folder
+  file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+
+- name: Copy the Docker cloudwatch config if it doesn't exists
+  copy:
+    src: "{{ inventory_dir }}/bitovi-daemon.json"
+    dest: "/etc/docker/daemon.json"
+  when: file_status_d.matched == 0
+
+- name: Copy the Docker cloudwatch config if it does exists
+  copy:
+    src: "{{ app_install_root }}/{{ app_repo_name }}/docker-daemon.json"
+    dest: "/etc/docker/daemon.json"
+  when: file_status_d.matched == 1
+
+- name: Check Docker exists
+  ansible.builtin.command:
+    cmd: "docker --version"
+  register: docker_check
+  ignore_errors: true
+
+- name: Restart docker service for changes to take effect
+  command: systemctl restart docker
+  become: yes
+  when: docker_check.rc == 0

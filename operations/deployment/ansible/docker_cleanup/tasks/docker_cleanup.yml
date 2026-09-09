@@ -1,0 +1,38 @@
+- name: Check Docker exists
+  ansible.builtin.command:
+    cmd: "docker --version"
+  register: docker_check
+  ignore_errors: true
+
+- name: Check if compose files exist
+  stat:
+    path: "{{ item }}"
+  register: file_status
+  with_items:
+    - "{{ app_install_root }}/{{ app_repo_name }}/docker-compose.yml"
+    - "{{ app_install_root }}/{{ app_repo_name }}/docker-compose.yaml"
+    - "{{ app_install_root }}/{{ app_repo_name }}/compose.yml"
+    - "{{ app_install_root }}/{{ app_repo_name }}/compose.yaml"
+
+- name: Counting those compose files
+  set_fact:
+    existing_files: "{{ file_status.results | selectattr('stat.exists') | map(attribute='item') | list }}"
+
+- name: Printing warning message of missing compose file
+  fail:
+    msg: "Can't find a valid compose file. Expected one of: docker-compose.yml, docker-compose.yaml, compose.yml, compose.yaml to stop and cleanup Docker."
+  when: existing_files | length < 1
+  ignore_errors: true
+
+- name: Stop and cleanup Docker
+  ansible.builtin.command: "docker compose --project-directory {{ app_install_root }}/{{ app_repo_name }} down --remove-orphans --rmi all --volumes"
+  register: output
+  when: docker_check.rc == 0 and existing_files | length > 0
+
+- name: Prune Docker system
+  command: docker system prune --all --force --volumes
+  when: docker_check.rc == 0
+
+- name: Prune all docker volumes
+  command: docker volume prune --all --force
+  when: docker_check.rc == 0

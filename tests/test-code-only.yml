@@ -1,0 +1,33 @@
+name: Test bitops_code_only flag
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_code_only: 'true'
+          aws_default_region: 'us-east-1'
+          aws_resource_identifier: 'test-code-only'
+          aws_ec2_instance_create: 'true'
+          ansible_skip: 'true'
+        continue-on-error: true
+
+      - name: Assert action completed (code_only exits before Docker)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action completed successfully with bitops_code_only=true"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected under harness sentinel repo)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

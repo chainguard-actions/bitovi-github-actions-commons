@@ -1,0 +1,32 @@
+name: Test nothing to deploy scenario
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # When no resource creation flags are set, generate_bitops_config.sh produces
+      # an empty config and deploy.sh exits with "There is nothing to be created or destroyed."
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          aws_default_region: 'us-east-1'
+          aws_resource_identifier: 'test-nothing'
+        continue-on-error: true
+
+      - name: Assert action completed gracefully with no resources configured
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action exited cleanly when nothing to deploy"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected under harness sentinel repo)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

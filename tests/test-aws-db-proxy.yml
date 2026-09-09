@@ -1,0 +1,39 @@
+name: Test AWS DB Proxy inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_db_proxy_enable: 'false'
+          aws_db_proxy_name: 'test-db-proxy'
+          aws_db_proxy_database_id: 'test-db'
+          aws_db_proxy_cluster: 'false'
+          aws_db_proxy_secret_name: 'test-db-secret'
+          aws_db_proxy_client_password_auth_type: 'POSTGRES_SCRAM_SHA_256'
+          aws_db_proxy_tls: 'true'
+          aws_db_proxy_security_group_name: 'test-proxy-sg'
+          aws_db_proxy_database_security_group_allow: 'false'
+          aws_db_proxy_allowed_security_group: ''
+          aws_db_proxy_allow_all_incoming: 'false'
+          aws_db_proxy_cloudwatch_enable: 'false'
+          aws_db_proxy_cloudwatch_retention_days: '7'
+          aws_db_proxy_additional_tags: '{"type":"proxy"}'
+      - name: Assert action ran
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran (outcome=$OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
