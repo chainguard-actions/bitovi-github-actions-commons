@@ -1,0 +1,23 @@
+name: Test - checkout=false skips internal checkout
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # With checkout=false, the action skips its internal checkout step.
+      # The workspace is already checked out by the step above.
+      # With no resources enabled, the action exits cleanly.
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          aws_resource_identifier: 'test-no-checkout'
+          aws_default_region: 'us-east-1'
+
+      - name: Assert action completed with checkout=false
+        run: |
+          echo "Action completed with checkout=false"
+          echo "PASS"

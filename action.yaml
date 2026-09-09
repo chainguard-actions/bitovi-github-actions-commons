@@ -1,0 +1,1736 @@
+name: 'Bitovi Github Actions Commons repo'
+description: 'Deploy anything you want with this action. Contains multiple Terraform modules to give you what you are looking for.'
+branding:
+  icon: upload-cloud
+  color: red
+inputs:
+  # GitHub Commons main inputs
+  checkout:
+    description: 'Specifies if this action should checkout the code'
+    required: false
+    default: 'true'
+  bitops_skip_run:
+    description: 'Will run the setup of the BitOps environment and exit. Only usefull to debug startup scripts.'
+    required: false
+    default: 'false'
+  bitops_code_only:
+    description: 'Will run only the generation phase of BitOps, where the Terraform and Ansible code is built.'
+    required: false
+  bitops_code_store:
+    description: 'Store BitOps code as a GitHub artifact'
+    required: false
+  bitops_extra_env_vars:
+    description: 'Variables to be passed to BitOps as Docker extra vars. Format should be `-e KEY1=VALUE1 -e KEY2=VALUE2`'
+    required: false
+  bitops_extra_env_vars_file:
+    description: '.env file to pass to BitOps Docker run. Usefull for long variables.'
+    required: false
+  tf_stack_destroy:
+    description: 'Set to "true" to Destroy the stack through Terraform.'
+    required: false
+  tf_state_file_name:
+    description: 'Change this to be anything you want to. Carefull to be consistent here. A missing file could trigger recreation, or stepping over destruction of non-defined objects.'
+    required: false
+  tf_state_file_name_append:
+    description: 'Append a string to the tf-state-file. Setting this to `unique` will generate `tf-state-aws-unique`. Can co-exist with the tf_state_file_name variable. '
+    required: false
+  tf_state_bucket:
+    description: 'AWS S3 bucket to use for Terraform state. Defaults to `${org}-${repo}-{branch}-tf-state`'
+    required: false
+  tf_state_bucket_destroy:
+    description: 'Force purge and deletion of S3 bucket defined. Any file contained there will be destroyed. `tf_stack_destroy` must also be `true`'
+    required: false
+  tf_state_bucket_provider:
+    description: 'Bucket provider for tfstate storage.'
+    required: false
+    default: 'aws'
+  tf_targets:
+    description: 'A list of targets to create before the full stack creation.'
+    required: false
+  ansible_skip:
+    description: 'Skip Ansible execution after Terraform excecution.'
+    required: false
+  ansible_ssh_to_private_ip:
+    description: 'Make Ansible connect to the private IP of the instance. Only usefull if using a hosted runner in the same network.'
+    required: false
+  ansible_start_docker_timeout:
+    description: 'Ammount of time in seconds it takes Ansible to mark as failed the startup of docker. Defaults to `300`'
+    required: false
+  # GitHub Deployment repo inputs
+  gh_deployment_input_terraform:
+    description: 'Folder to store Terraform files to be included during Terraform execution.'
+    required: false
+  gh_deployment_input_ansible:
+    description: 'Folder where a whole Ansible structure is expected. If missing bitops.config.yaml a default will be generated.'
+    required: false
+  gh_deployment_input_ansible_playbook:
+    description: 'Main playbook to be looked for.'
+    default: playbook.yml
+    required: false
+  gh_deployment_input_ansible_extra_vars_file:
+    description: 'Relative path to file from project root to Ansible vars file to be applied. '
+    required: false
+  gh_deployment_action_input_ansible_extra_vars_file:
+    description: 'Relative path to file from project root to Ansible vars file to be applied into the Action Ansible execution. '
+    required: false
+  gh_deployment_input_helm_charts:
+    description: 'Relative path to the folder from project containing Helm charts to be installed. Could be uncompressed or compressed (.tgz) files.'
+    required: false
+  # GitHub Action repo inputs
+  gh_action_repo:
+    description: 'URL of calling repo'
+    required: false
+  gh_action_input_terraform:
+    description: 'Folder to store Terraform files to be included during Terraform execution.'
+    required: false
+  gh_action_input_ansible:
+    description: 'Folder where a whole Ansible structure is expected. If missing bitops.config.yaml a default will be generated.'
+    required: false
+  gh_action_input_ansible_playbook:
+    description: 'Main playbook to be looked for.'
+    default: playbook.yml
+    required: false
+  gh_action_input_helm_charts:
+    description: 'Relative path to the folder from action containing Helm charts to be installed. Could be uncompressed or compressed (.tgz) files.'
+    required: false
+  # AWS Specific
+  aws_access_key_id:
+    description: 'AWS access key ID'
+    required: false
+  aws_secret_access_key:
+    description: 'AWS secret access key'
+    required: false
+  aws_session_token:
+    description: 'AWS session token'
+    required: false
+  aws_default_region:
+    description: 'AWS default region'
+    default: us-east-1
+    required: false
+  aws_resource_identifier:
+    description: 'Set to override the AWS resource identifier for the deployment.  Defaults to `${org}-{repo}-{branch}`.  Use with destroy to destroy specific resources.'
+    required: false
+  aws_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # ENV files
+  env_aws_secret:
+    description: 'Secret name to pull env variables from AWS Secret Manager, could be a comma separated list, read in order. Expected JSON content.'
+    required: false
+  env_repo:
+    description: 'File containing environment variables to be used with the app'
+    required: false
+  env_ghs:
+    description: '`.env` file to be used with the app from Github secrets'
+    required: false
+  env_ghv:
+    description: '`.env` file to be used with the app from Github variables'
+    required: false
+  # EC2 Instance
+  aws_ec2_instance_create:
+    description: 'Define if an EC2 instance should be created'
+    required: false
+  aws_ec2_ami_filter:
+    description: 'AWS AMI Filter string. Will be used to lookup for lates image based on the string. Defaults to `ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*`.'
+    required: false
+  aws_ec2_ami_owner:
+    description: 'Owner of AWS AMI image. This ensures the provider is the one we are looking for. Defaults to `099720109477`, Canonical (Ubuntu).'
+    required: false
+  aws_ec2_ami_id:
+    description: 'AWS AMI ID. Will default to lookup for latest image of the `aws_ec2_ami_filter` string. This will override `aws_ec2_ami_filter` lookup.'
+    required: false
+  aws_ec2_ami_update:
+    description: 'Set this to true if you want to recreate the EC2 instance if there is a newer version of the AMI.'
+    required: false
+  aws_ec2_iam_instance_profile:
+    description: 'The AWS IAM instance profile to use for the EC2 instance'
+    required: false
+  aws_ec2_instance_type:
+    description: 'The AWS Instance type'
+    required: false
+  aws_ec2_instance_root_vol_size:
+    description: 'Define the volume size (in GiB) for the root volume on the AWS Instance.'
+    required: false
+  aws_ec2_instance_root_vol_preserve:
+    description: 'Set this to true to avoid deletion of root volume on termination. Defaults to false.'
+    required: false
+  aws_ec2_security_group_name:
+    description: 'The name of the EC2 security group'
+    required: false
+  aws_ec2_create_keypair_sm:
+    required: false
+    description: 'Generates and manages a secret manager entry that contains the public and private keys created for the ec2 instance.'
+  aws_ec2_instance_public_ip:
+    description: 'Add a public IP to the instance or not. (Not an Elastic IP)'
+    required: false
+  aws_ec2_port_list:
+    description: 'List of ports to be enabled as an ingress rule in the EC2 SG, in a [xx,yy] format - Not the ELB'
+    required: false
+  aws_ec2_user_data_file:
+    description: 'Relative path in the repo for a user provided script to be executed with Terraform EC2 Instance creation.'
+    required: false
+  aws_ec2_user_data_replace_on_change:
+    description: 'If user_data file changes, instance will stop and start. Hence public IP will change. Defaults to true.'
+    required: false
+  aws_ec2_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # AWS VPC Inputs
+  aws_vpc_create:
+    description: 'Define if a VPC should be created'
+    required: false
+  aws_vpc_name:
+    description: 'Set a specific name for the VPC'
+    required: false
+  aws_vpc_cidr_block:
+    description: 'Define Base CIDR block which is divided into subnet CIDR blocks. Defaults to 10.0.0.0/16.'
+    required: false
+  aws_vpc_public_subnets:
+    description: 'Comma separated list of public subnets. Defaults to 10.10.110.0/24'
+    required: false
+  aws_vpc_private_subnets:
+    description: 'Comma separated list of private subnets. If none, none will be created.'
+    required: false
+  aws_vpc_availability_zones:
+    description: 'Comma separated list of availability zones. Defaults to `aws_default_region.'
+    required: false
+  aws_vpc_id:
+    description: 'AWS VPC ID. Accepts `vpc-###` values.'
+    required: false
+  aws_vpc_subnet_id:
+    description: 'Specify a Subnet to be used with the instance. If none provided, will pick one.'
+    required: false
+  aws_vpc_enable_nat_gateway:
+    description: 'Enables NAT gateway'
+    required: false
+  aws_vpc_single_nat_gateway:
+    description: 'Creates only one NAT gateway'
+    required: false
+  aws_vpc_external_nat_ip_ids:
+    description: 'Comma separated list of IP IDS to reuse in the NAT gateways'
+    required: false
+  aws_vpc_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # AWS Route53 Domains abd Certificates
+  aws_r53_enable:
+    description: 'Enables the usage of Route53 to manage DNS records.'
+    required: false
+  aws_r53_domain_name:
+    description: 'Define the root domain name for the application. e.g. app.com'
+    required: false
+  aws_r53_sub_domain_name:
+    description: 'Define the sub-domain part of the URL. Defaults to `${org}-${repo}-{branch}`'
+    required: false
+  aws_r53_root_domain_deploy:
+    description: 'Deploy to root domain. Will generate two DNS recrods, one for root, another for www'
+    required: false
+  aws_r53_enable_cert:
+    description: 'Makes the application use a certificate by enabling a certificate lookup.'
+    required: false
+  aws_r53_cert_arn:
+    description: 'Define the certificate ARN to use for the application'
+    required: false
+  aws_r53_create_root_cert:
+    description: 'Generates and manage the root cert for the application'
+    required: false
+  aws_r53_create_sub_cert:
+    description: 'Generates and manage the sub-domain certificate for the application'
+    required: false
+  aws_r53_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # AWS ELB
+  aws_elb_create:
+    description: 'Create a load balancer and map ports to the EC2 instance.'
+    required: false
+  aws_elb_security_group_name:
+    description: 'The name of the ELB security group'
+    required: false
+  aws_elb_app_port:
+    description: 'Port to expose for the app'
+    required: false
+  aws_elb_app_protocol:
+    description: 'Protocol to enable. Could be HTTP, HTTPS, TCP or SSL. Defaults to TCP.'
+    required: false
+  aws_elb_listen_port:
+    description: 'Load balancer listening port. Defaults to 80 if NO FQDN provided, 443 if FQDN provided'
+    required: false
+  aws_elb_listen_protocol:
+    description: 'Protocol to enable. Could be HTTP, HTTPS, TCP or SSL. Defaults to TCP if NO FQDN provided, SSL if FQDN provided'
+    required: false
+  aws_elb_healthcheck:
+    description: 'Load balancer health check string. Defaults to TCP:22'
+    required: false
+  aws_elb_access_log_bucket_name:
+    description: 'S3 bucket name to store the ELB access logs.'
+    required: false
+  aws_elb_access_log_expire:
+    description: 'Delete the access logs after this amount of days. Defaults to 90.'
+    required: false
+  aws_elb_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # AWS ALB
+  aws_alb_create:
+    description: "Global toggle for ALB creation"
+    required: false
+  aws_alb_security_group_name:
+    description: "Name of the security group to use for ALB"
+    required: false
+  aws_alb_app_port:
+    description: "Comma-separated list of application ports for ALB target group"
+    required: false
+  aws_alb_app_protocol:
+    description: "Comma-separated list of protocols for ALB target group (HTTP/HTTPS)"
+    required: false
+  aws_alb_listen_port:
+    description: "Comma-separated list of listener ports for ALB"
+    required: false
+  aws_alb_listen_protocol:
+    description: "Comma-separated list of listener protocols for ALB (HTTP/HTTPS)"
+    required: false
+  aws_alb_redirect_enable:
+    description: "Enable HTTP to HTTPS redirection on ALB"
+    required: false
+  aws_alb_www_to_apex_redirect:
+    description: 'Enable www to apex domain redirection on ALB'
+    required: false
+  aws_alb_healthcheck_path:
+    description: "Health check path for ALB target group"
+    required: false
+  aws_alb_healthcheck_protocol:
+    description: "Health check protocol for ALB target group"
+    required: false
+  aws_alb_ssl_policy:
+    description: "SSL policy for HTTPS listeners"
+    required: false
+  aws_alb_access_log_enabled:
+    description: "Enable ALB access logs"
+    required: false
+  aws_alb_access_log_bucket_name:
+    description: "S3 bucket name to store the ALB access logs"
+    required: false
+  aws_alb_access_log_expire:
+    description: "Delete the access logs after this amount of days"
+    required: false
+  aws_alb_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # AWS WAF
+  aws_waf_enable:
+    description: 'Enable WAF for load balancer.'
+    required: false
+  aws_waf_logging_enable:
+    description: 'Enable WAF logging to CloudWatch.'
+    required: false
+  aws_waf_log_retention_days:
+    description: 'CloudWatch log retention period for WAF logs.'
+    required: false
+  aws_waf_rule_rate_limit:
+    description: 'Rate limit for WAF rules.'
+    required: false
+  aws_waf_rule_rate_limit_priority:
+    description: 'Priority for rate limit rule.'
+    required: false
+  aws_waf_rule_managed_rules:
+    description: 'Enable common managed rule groups to use.'
+    required: false
+  aws_waf_rule_managed_rules_priority:
+    description: 'Priority for managed rules group.'
+    required: false
+  aws_waf_rule_managed_bad_inputs:
+    description: 'Enable managed rule for bad inputs.'
+    required: false
+  aws_waf_rule_managed_bad_inputs_priority:
+    description: 'Priority for bad inputs managed rule.'
+    required: false
+  aws_waf_rule_ip_reputation:
+    description: 'Enable managed rule for IP reputation.'
+    required: false
+  aws_waf_rule_ip_reputation_priority:
+    description: 'Priority for IP reputation managed rule.'
+    required: false
+  aws_waf_rule_anonymous_ip:
+    description: 'Enable managed rule for anonymous IP.'
+    required: false
+  aws_waf_rule_anonymous_ip_priority:
+    description: 'Priority for anonymous IP managed rule.'
+    required: false
+  aws_waf_rule_bot_control:
+    description: 'Enable managed rule for bot control (costs extra).'
+    required: false
+  aws_waf_rule_bot_control_priority:
+    description: 'Priority for bot control managed rule.'
+    required: false
+  aws_waf_rule_geo_block_countries:
+    description: 'Comma separated list of countries to block.'
+    required: false
+  aws_waf_rule_geo_block_countries_priority:
+    description: 'Priority for geo block countries managed rule.'
+    required: false
+  aws_waf_rule_geo_allow_only_countries:
+    description: 'Comma separated list of countries to allow.'
+    required: false
+  aws_waf_rule_geo_allow_only_countries_priority:
+    description: 'Priority for geo allow only countries managed rule.'
+    required: false
+  aws_waf_rule_sqli:
+    description: 'Enable managed rule for SQL injection.'
+    required: false
+  aws_waf_rule_sqli_priority:
+    description: 'Priority for SQL injection managed rule.'
+    required: false
+  aws_waf_rule_linux:
+    description: 'Enable managed rule for Linux.'
+    required: false
+  aws_waf_rule_linux_priority:
+    description: 'Priority for Linux managed rule.'
+    required: false
+  aws_waf_rule_unix:
+    description: 'Enable managed rule for Unix.'
+    required: false
+  aws_waf_rule_unix_priority:
+    description: 'Priority for Unix managed rule.'
+    required: false
+  aws_waf_rule_admin_protection:
+    description: 'Enable managed rule for admin protection.'
+    required: false
+  aws_waf_rule_admin_protection_priority:
+    description: 'Priority for admin protection managed rule.'
+    required: false
+  aws_waf_rule_user_arn:
+    description: 'ARN of the user rule.'
+    required: false
+  aws_waf_rule_user_arn_priority:
+    description: 'Priority for user defined rule.'
+    required: false
+  aws_waf_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # AWS EFS
+  aws_efs_create:
+    description: 'Toggle to indicate whether to create and EFS and mount it to the ec2 as a part of the provisioning. Note: The EFS will be managed by the stack and will be destroyed along with the stack.'
+    required: false
+  aws_efs_fs_id:
+    description: 'ID of existing EFS'
+    required: false
+  aws_efs_create_mount_target:
+    description: 'Toggle to indicate whether we should create a mount target for the EFS volume. Accepts incoming fs_id with no mount targets too.'
+    required: false
+  aws_efs_create_ha:
+    description: 'Toggle to indicate whether the EFS resource should be highly available (mount points in all available zones within region).'
+    required: false
+  aws_efs_vol_encrypted:
+    description: 'Toggle encryption of the EFS volume.'
+    required: false
+  aws_efs_kms_key_id:
+    description: 'The ARN for the KMS encryption key. Default key will be used if none defined.'
+    required: false
+  aws_efs_performance_mode:
+    description: 'Toggle perfomance mode. Options are: generalPurpose or maxIO.'
+    required: false
+  aws_efs_throughput_mode:
+    description: 'Throughput mode for the file system. Defaults to bursting. Valid values: bursting, provisioned, or elastic. When using provisioned, also set provisioned_throughput_in_mibps.'
+    required: false
+  aws_efs_throughput_speed:
+    description: 'The throughput, measured in MiB/s, that you want to provision for the file system. Only applicable with throughput_mode set to provisioned.'
+    required: false
+  aws_efs_security_group_name:
+    description: 'The name of the EFS security group. Defaults to SG for aws_resource_identifier - EFS.'
+    required: false
+  aws_efs_allowed_security_groups:
+    description: 'Comma separated list of security groups to be added to the EFS SG.'
+    required: false
+  aws_efs_ingress_allow_all:
+    description: 'Allow incoming traffic from 0.0.0.0/0.'
+    required: false
+  aws_efs_create_replica:
+    description: 'Toggle to indiciate whether a read-only replica should be created for the EFS primary file system'
+    required: false
+  aws_efs_replication_destination:
+    description: 'AWS Region to target for replication'
+    required: false
+  aws_efs_enable_backup_policy:
+    description: 'Toggle to indiciate whether the EFS should have a backup policy, default is `false`'
+    required: false
+  aws_efs_transition_to_inactive:
+    description: 'https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/efs_file_system#transition_to_ia'
+    required: false
+  aws_efs_mount_target:
+    description: 'Directory path in efs to mount to'
+    required: false
+  aws_efs_ec2_mount_point:
+    description: 'Directory path in application env to mount directory'
+    required: false
+  aws_efs_additional_tags:
+    description: 'A list of strings that will be added to created resources'
+    required: false
+  # AWS RDS
+  aws_rds_db_enable:
+    description: 'Set to true to enable an RDS DB.'
+    required: false
+  aws_rds_db_proxy:
+    description: 'Set to true to add a RDS DB Proxy'
+    required: false
+  aws_rds_db_identifier:
+    description: 'Database identifier that will appear in the AWS Console. Defaults to aws_resource_identifier if none set.'
+    required: false
+  aws_rds_db_name:
+    description: 'The name of the database to create when the DB instance is created.'
+    required: false
+  aws_rds_db_user:
+    description: 'Username for the db. Defaults to dbuser.'
+    required: false
+  aws_rds_db_engine:
+    description: 'Which Database engine to use. Default is postgres'
+    required: false
+  aws_rds_db_engine_version:
+    description: 'Which Database engine version to use.'
+    required: false
+  aws_rds_db_ca_cert_identifier:
+    description: 'Certificate to use with the database. Defaults to rds-ca-ecc384-g1'
+    required: false
+  aws_rds_db_security_group_name:
+    description: 'The name of the database security group. Defaults to SG for aws_resource_identifier - RDS.'
+    required: false
+  aws_rds_db_allowed_security_groups:
+    description: 'Comma separated list of security groups to add to the DB SG'
+    required: false
+  aws_rds_db_ingress_allow_all:
+    description: 'Allow incoming traffic from 0.0.0.0/0.'
+    required: false
+  aws_rds_db_publicly_accessible:
+    description: 'Allow the database to be publicly accessible.'
+    required: false
+  aws_rds_db_port:
+    description: ' Port where the DB listens to.'
+    required: false
+  aws_rds_db_subnets:
+    description: 'Specify which subnets to use as a list of strings. '
+    required: false
+  aws_rds_db_allocated_storage:
+    description: 'Storage size. Defaults to 10.'
+    required: false
+  aws_rds_db_max_allocated_storage:
+    description: 'Max storage size. Defaults to 0 to disable auto-scaling.'
+    required: false
+  aws_rds_db_storage_encrypted:
+    description: 'Toogle storage encryption. Defatuls to false.'
+    required: false
+  aws_rds_db_storage_type:
+    description: 'Storage type. Like gp2 / gp3. Defaults to gp2.'
+    required: false
+  aws_rds_db_kms_key_id:
+    description: 'The ARN for the KMS encryption key.'
+    required: false
+  aws_rds_db_instance_class:
+    description: 'DB instance server type. Defaults to db.t3.micro.'
+    required: false
+  aws_rds_db_final_snapshot:
+    description: 'Generates a snapshot of the database before deletion.'
+    required: false
+  aws_rds_db_restore_snapshot_identifier:
+    description: 'Name of the snapshot to restore the database from.'
+    required: false
+  aws_rds_db_cloudwatch_logs_exports:
+    description: 'Set of log types to enable for exporting to CloudWatch logs.'
+    required: false
+  aws_rds_db_multi_az:
+    description: 'Specifies if the RDS instance is multi-AZ'
+    required: false
+  aws_rds_db_maintenance_window:
+    description: 'The window to perform maintenance in. Eg: Mon:00:00-Mon:03:00 '
+    required: false
+  aws_rds_db_apply_immediately:
+    description: 'Specifies whether any database modifications are applied immediately, or during the next maintenance window'
+    required: false
+  aws_rds_db_performance_insights_enable:
+    description: 'Enables performance insights for the database. Defaults to false.'
+    required: false
+  aws_rds_db_performance_insights_retention:
+    description: 'Number of days to retain performance insights data. Defaults to 7.'
+    required: false
+  aws_rds_db_performance_insights_kms_key_id:
+    description: 'KMS key ID to use for encrypting performance insights data.'
+    required: false
+  aws_rds_db_monitoring_interval:
+    description: 'The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance. To disable, set to 0.'
+    required: false
+  aws_rds_db_monitoring_role_arn:
+    description: 'The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to CloudWatch Logs.'
+    required: false
+  aws_rds_db_insights_mode:
+    description: 'The mode for Performance Insights.'
+    required: false
+  aws_rds_db_allow_major_version_upgrade:
+    description: 'Indicates that major version upgrades are allowed.'
+    required: false
+  aws_rds_db_auto_minor_version_upgrade:
+    description: 'Indicates that minor version upgrades are allowed.'
+    required: false
+  aws_rds_db_backup_retention_period:
+    description: 'The number of days to retain backups for. Must be between 0 (disabled) and 35.'
+    required: false
+  aws_rds_db_backup_window:
+    description: 'The window during which backups are taken.'
+    required: false
+  aws_rds_db_copy_tags_to_snapshot:
+    description: 'Indicates whether to copy tags to snapshots.'
+    required: false
+  aws_rds_db_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # AWS Aurora
+  aws_aurora_enable:
+    description: 'Toggles deployment of an Aurora database. Defaults to false.'
+    required: false
+  aws_aurora_proxy:
+    description: 'Aurora DB Proxy Toggle. Defaults to false.'
+    required: false
+  aws_aurora_cluster_name:
+    description: 'The name of the cluster. Will be created if it does not exist. Defaults to aws_resource_identifier if none set.'
+    required: false
+  aws_aurora_engine:
+    description: 'The database engine to use. Defaults to aurora-postgresql.'
+    required: false
+  aws_aurora_engine_version:
+    description: 'The DB version of the engine to use.'
+    required: false
+  aws_aurora_engine_mode:
+    description: 'Database engine mode. Could be global, multimaster, parallelquey, provisioned, serverless.'
+    required: false
+  aws_aurora_availability_zones:
+    description: 'List of availability zones for the DB cluster storage where DB cluster instances can be created.'
+    required: false
+  aws_aurora_cluster_apply_immediately:
+    description: 'Apply changes immediately to the cluster. If not, will be done in next maintenance window.. Default false'
+    required: false
+  # Storage
+  aws_aurora_allocated_storage:
+    description: 'Amount of storage in gigabytes. Required for multi-az cluster.'
+    required: false
+  aws_aurora_storage_encrypted:
+    description: 'Toggles whether the DB cluster is encrypted. Defaults to true.'
+    required: false
+  aws_aurora_kms_key_id:
+    description: 'KMS Key ID to use with the cluster encrypted storage.'
+    required: false
+  aws_aurora_storage_type:
+    description: 'Define type of storage to use. Required for multi-az cluster.'
+    required: false
+  aws_aurora_storage_iops:
+    description: 'iops for storage. Required for multi-az cluster. '
+    required: false
+  # Cluster details
+  aws_aurora_database_name:
+    description: 'The name of the database. will be created if it does not exist. Defaults to aurora'
+    required: false
+  aws_aurora_master_username:
+    description: 'Master username. Defaults to aurora'
+    required: false
+  aws_aurora_database_group_family:
+    description: 'The family of the DB parameter group. See https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/AuroraMySQL.Reference.html https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/AuroraPostgreSQL.Reference.html. Defaults set for Postges and MySQL.'
+    required: false
+  aws_aurora_iam_auth_enabled:
+    description: 'Toggles IAM Authentication. Defaults to false.'
+    required: false
+  aws_aurora_iam_roles:
+    description: 'Define the ARN list of allowed roles.'
+    required: false
+  aws_aurora_cluster_db_instance_class:
+    description: 'To create a Multi-AZ RDS cluster, you must additionally specify the engine, storage_type, allocated_storage, iops and aws_aurora_db_cluster_instance_class attributes.'
+    required: false
+  aws_aurora_security_group_name:
+    description: 'Name of the security group to use for postgres. Defaults to SG for ${var.aws_resource_identifier} - Aurora'
+    required: false
+  aws_aurora_ingress_allow_all:
+    description: 'Allow access from 0.0.0.0/0 in the same VPC. Defaults to true'
+    required: false
+  aws_aurora_allowed_security_groups:
+    description: 'Extra names of the security groups to access Aurora.'
+    required: false
+  aws_aurora_subnets:
+    description: 'The list of subnet ids to use for postgres.'
+    required: false
+  aws_aurora_database_port:
+    description: 'Database port. Defaults to 5432'
+    required: false
+  aws_aurora_db_publicly_accessible:
+    description: 'Make database publicly accessible. Defaults to false.'
+    required: false
+  # Backup & maint
+  aws_aurora_cloudwatch_enable:
+    description: 'Toggles cloudwatch. Defaults to true'
+    required: false
+  aws_aurora_cloudwatch_log_type:
+    description: 'Comma separated list of log types to include in cloudwatch. If none defined, will use [postgresql] or [audit,error,general,slowquery]. Based on the db engine.'
+    required: false
+  aws_aurora_cloudwatch_retention_days:
+    description: 'Days to store cloudwatch logs. Defaults to 7.'
+    required: false
+  aws_aurora_backtrack_window:
+    description: 'Target backtrack window, in seconds. Only available for aurora and aurora-mysql engines currently. 0 to disable. Defaults to 0'
+    required: false
+  aws_aurora_backup_retention_period:
+    description: 'Days to retain backups for. Defaults to 5.'
+    required: false
+  aws_aurora_backup_window:
+    description: 'Daily time range during which the backups happen.'
+    required: false
+  aws_aurora_maintenance_window:
+    description: 'Maintenance window.'
+    required: false
+  aws_aurora_database_final_snapshot:
+    description: 'Set the name to Generate a snapshot of the database before deletion.'
+    required: false
+  aws_aurora_deletion_protection:
+    description: 'Protects the database from deletion. Defaults to false. This wont prevent Terraform from destroying it.'
+    required: false
+  aws_aurora_delete_auto_backups:
+    description: 'Specifies whether to remove automated backups immediately after the DB cluster is deleted. Default is true.'
+    required: false
+  aws_aurora_restore_snapshot_id:
+    description: 'Restore an initial snapshot of the DB if specified.'
+    required: false
+  aws_aurora_restore_to_point_in_time:
+    description: 'Restore database to a point in time. Will require a map of strings. Like {"restore_to_time"="W","restore_type"="X","source_cluster_identifier"="Y", "use_latest_restorable_time"="Z"}. Default {}'
+    required: false
+  aws_aurora_snapshot_name:
+    description: 'Takes a snapshot of the DB.'
+    required: false
+  aws_aurora_snapshot_overwrite:
+    description: 'Overwrites snapshot if same name is set. Defaults to false.'
+    required: false
+  aws_aurora_db_instances_count:
+    description: 'Amount of instances to create. Defaults to 1.'
+    required: false
+  aws_aurora_db_instance_class:
+    description: 'Database instance size. Defaults to db.r6g.large.'
+    required: false
+  aws_aurora_db_apply_immediately:
+    description: 'Specifies whether any modifications are applied immediately, or during the next maintenance window. Defaults to false.'
+    required: false
+  aws_aurora_db_ca_cert_identifier:
+    description: 'Certificate to use with the database. Defaults to rds-ca-ecc384-g1.'
+    required: false
+  aws_aurora_db_maintenance_window:
+    description: 'Maintenance window.'
+    required: false
+  aws_aurora_performance_insights_enable:
+    description: 'Enables performance insights for the database. Defaults to false.'
+    required: false
+  aws_aurora_performance_insights_kms_key_id:
+    description: 'KMS key ID to use for encrypting performance insights data.'
+    required: false
+  aws_aurora_performance_insights_retention:
+    description: 'Number of days to retain performance insights data. Defaults to 7.'
+    required: false
+  aws_aurora_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+  # RDS Proxy
+  aws_db_proxy_enable:
+    description: 'Toggle DB Proxy creation'
+    required: false
+  aws_db_proxy_name:
+    description: 'DB Proxy name'
+    required: false
+  aws_db_proxy_database_id:
+    description: 'Database ID to create proxy for'
+    required: false
+  aws_db_proxy_cluster:
+    description: 'Define if Database is a cluster or not'
+    required: false
+  aws_db_proxy_secret_name:
+    description: 'Name of the secret containing DB parameters to connect to'
+    required: false
+  aws_db_proxy_client_password_auth_type:
+    description: 'Auth type to use, will use the following, depending on DB the family. MYSQL_NATIVE_PASSWORD, POSTGRES_SCRAM_SHA_256, and SQL_SERVER_AUTHENTICATION'
+    required: false
+  aws_db_proxy_tls:
+    description: 'Toogle TLS enforcement for connection'
+    required: false
+  aws_db_proxy_security_group_name:
+    description: 'Name for the proxy security group. Default to aws_resource_identifier if none.'
+    required: false
+  aws_db_proxy_database_security_group_allow:
+    description: 'Will add an incoming rule from every security group associated with the DB'
+    required: false
+  aws_db_proxy_allowed_security_group:
+    description: 'Comma separated list of SG Ids to add.'
+    required: false
+  aws_db_proxy_allow_all_incoming:
+    description: 'Allow all incoming traffic to the DB Proxy. Mind that the proxy is only available from the internal network except manually exposed.'
+    required: false
+  aws_db_proxy_cloudwatch_enable:
+    description: 'Toggle Cloudwatch logs. Will be stored in /aws/rds/proxy/rds_proxy.name'
+    required: false
+  aws_db_proxy_cloudwatch_retention_days:
+    description: 'Number of days to retain logs'
+    required: false
+  aws_db_proxy_additional_tags:
+    description: 'A list of strings that will be added to created resources'
+    required: false
+  # Redis
+  aws_redis_enable:
+    description: 'Enables the creation of a Redis instance'
+    required: false
+  aws_redis_user:
+    description: 'Redis username. Defaults to redisuser'
+    required: false
+  aws_redis_user_access_string:
+    description: 'String expression for user access. Defaults to on ~* +@all'
+    required: false
+  aws_redis_user_group_name:
+    description: 'User group name. Defaults to aws_resource_identifier-redis'
+    required: false
+  aws_redis_security_group_name:
+    description: 'Redis security group name. Defaults to SG for aws_resource_identifier - Redis'
+    required: false
+  aws_redis_ingress_allow_all:
+    description: 'Allow access from 0.0.0.0/0 in the same VPC'
+    required: false
+  aws_redis_allowed_security_groups:
+    description: 'Comma separated list of security groups to be added to the Redis SG.'
+    required: false
+  aws_redis_subnets:
+    description: 'Define a list of specific subnets where Redis will live. Defaults to all of the VPC ones. If not defined, default VPC.'
+    required: false
+  aws_redis_port:
+    description: 'Redis port. Defaults to 6379'
+    required: false
+  aws_redis_at_rest_encryption:
+    description: 'Encryption at rest. Defaults to true.'
+    required: false
+  aws_redis_in_transit_encryption:
+    description: 'In-transit encryption. Defaults to true.'
+    required: false
+  aws_redis_replication_group_id:
+    description: 'Name of the Redis replication group. Defaults to aws_resource_identifier-redis'
+    required: false
+  aws_redis_node_type:
+    description: 'Node type of the Redis instance. Defaults to cache.t2.small'
+    required: false
+  aws_redis_num_cache_clusters:
+    description: 'Amount of Redis nodes. Defaults to 1'
+    required: false
+  aws_redis_parameter_group_name:
+    description: 'Redis parameters groups name. If cluster wanted, set it to something that includes .cluster.on. Defaults to default.redis7'
+    required: false
+  aws_redis_num_node_groups:
+    description: 'Number of node groups. Defaults to 0.'
+    required: false
+  aws_redis_replicas_per_node_group:
+    description: 'Number of replicas per node group. Defaults to 0'
+    required: false
+  aws_redis_multi_az_enabled:
+    description: 'Enables multi-availability-zone redis. Defaults to false'
+    required: false
+  aws_redis_automatic_failover:
+    description: 'Allows overriding the automatic configuration of this value, only needed when playing with resources in a non-conventional way.'
+    required: false
+  aws_redis_apply_immediately:
+    description: 'Specifies whether any modifications are applied immediately, or during the next maintenance window. Default is false.'
+    required: false
+  aws_redis_auto_minor_upgrade:
+    description: 'Specifies whether minor version engine upgrades will be applied automatically to the underlying Cache Cluster instances during the maintenance window. Defaults to true.'
+    required: false
+  aws_redis_maintenance_window:
+    description: 'Specifies the weekly time range for when maintenance on the cache cluster is performed. Example:sun:05:00-sun:06:00. Defaults to null.'
+    required: false
+  aws_redis_snapshot_window:
+    description: 'Daily time range (in UTC) when to start taking a daily snapshot. Minimum is a 60 minute period. Example: 05:00-09:00. Defaults to null.'
+    required: false
+  aws_redis_final_snapshot:
+    description: 'Change name to define a final snapshot.'
+    required: false
+  aws_redis_snapshot_restore_name:
+    description: 'Set name to restore a snapshot to the cluster. The default behaviour is to restore it each time this action runs.'
+    required: false
+  aws_redis_cloudwatch_enabled:
+    description: 'Enable or disables Cloudwatch logging.'
+    required: false
+  aws_redis_cloudwatch_lg_name:
+    description: 'Cloudwatch log group name. Defaults to /aws/redis/aws_resource_identifier. Will append log_type to it.'
+    required: false
+  aws_redis_cloudwatch_log_format:
+    description: 'Define log format between json (default) and text.'
+    required: false
+  aws_redis_cloudwatch_log_type:
+    description: 'Log type. Older Redis engines need slow-log. Newer support engine-log (default)'
+    required: false
+  aws_redis_cloudwatch_retention_days:
+    description: "Number of days to retain logs. 0 to never expire. Default '14'"
+    required: false
+  aws_redis_single_line_url_secret:
+    description: 'Creates an AWS secret containing the connection string containing protocol://user@pass:endpoint:port'
+    required: false
+  aws_redis_additional_tags:
+    description: 'Additional tags to be added to every Redis related resource'
+    required: false
+  # Docker 
+  docker_install:
+    description: 'Define if docker should be installed. After this, docker-compose up will be excecuted.'
+    required: false
+  docker_remove_orphans:
+    description: 'Toggle --remove-orphans flag. Defaults to false.'
+    required: false
+  docker_full_cleanup:
+    description: 'Set to true to run docker-compose down and docker system prune --all --force --volumes after.'
+    required: false
+  docker_repo_app_directory:
+    description: 'Relative path for the directory of the app (i.e. where `Dockerfile` and `docker-compose.yaml` files are located). This is the directory that is copied to the compute instance (EC2).  Default is the root of the repo. Add a .gha-ignore file with a list of files to be exluded. '
+    required: false
+  docker_repo_app_directory_cleanup:
+    description: 'Will generate a timestamped compressed file and delete the app repo directory.'
+    required: false
+  docker_backup_retention:
+    description: 'Number of old backups to retain. Default is unlimited.'
+    required: false
+  docker_efs_mount_target:
+    description: 'Directory path within docker env to mount directory to, default is `/data`'
+    required: false
+  docker_cloudwatch_enable:
+    description: 'Toggle cloudwatch creation for Docker containers.'
+    required: false
+  docker_cloudwatch_lg_name:
+    description: 'Log group name. Will default to aws_identifier if none.'
+    required: false
+  docker_cloudwatch_skip_destroy:
+    description: 'Toggle deletion or not when destroying the stack.'
+    required: false
+  docker_cloudwatch_retention_days:
+    description: 'Number of days to retain logs. 0 to never expire.'
+    required: false
+  # AWS_ECS
+  aws_ecs_enable:
+    description: 'Toggle ECS Creation'
+    required: false
+  aws_ecs_service_name:
+    description: 'Elastic Container Service name'
+    required: false
+  aws_ecs_cluster_name:
+    description: 'Elastic Container Service cluster name'
+    required: false
+  aws_ecs_service_launch_type:
+    description: 'Configuration type. Could be EC2, FARGATE or EXTERNAL'
+    required: false
+  aws_ecs_task_type:
+    description: 'Configuration type. Could be EC2, FARGATE or empty. Will default to aws_ecs_service_launch_type if none defined. (Blank if EXTERNAL)'
+    required: false
+  aws_ecs_task_name:
+    description: 'Elastic Container Service task name'
+    required: false
+  aws_ecs_task_ignore_definition:
+    description: 'Toggle to ignore task definition changes after first deployment. Useful when using external tools to manage the task definition.'
+    required: false
+  aws_ecs_task_execution_role:
+    description: 'Elastic Container Service task execution role name from IAM. Defaults to "ecsTaskExecutionRole"'
+    required: false
+  aws_ecs_task_json_definition_file:
+    description: 'Name of the json file containing task definition. Overrides every other input.'
+    required: false
+  aws_ecs_task_network_mode:
+    description: 'Network type to use in task definition'
+    required: false
+  aws_ecs_task_cpu:
+    description: 'Task CPU Amount'
+    required: false
+  aws_ecs_task_mem:
+    description: 'Task Mem Amount'
+    required: false
+  aws_ecs_container_cpu:
+    description: 'Container CPU Amount'
+    required: false
+  aws_ecs_container_mem:
+    description: 'Container Mem Amount'
+    required: false
+  aws_ecs_node_count:
+    description: 'Node count for ECS Cluster'
+    required: false
+  aws_ecs_app_image:
+    description: 'Name of the image to be used'
+    required: false
+  aws_ecs_security_group_name:
+    description: 'ECS Secruity group name'
+    required: false
+  aws_ecs_assign_public_ip:
+    description: 'Assign public IP to node'
+    required: false
+  aws_ecs_container_port:
+    description: 'Comma separated list of container ports'
+    required: false
+  aws_ecs_lb_port:
+    description: 'Comma serparated list of ports exposed by the load balancer'
+    required: false
+  aws_ecs_lb_redirect_enable:
+    description: 'Toggle redirect from HTTP and/or HTTPS to the main port.'
+    required: false
+  aws_ecs_lb_container_path:
+    description: 'Path for subsequent deployed images. eg. api.'
+    required: false
+  aws_ecs_lb_ssl_policy:
+    description: 'SSL Policy for HTTPS listener in ALB. Will default to ELBSecurityPolicy-TLS13-1-2-2021-06 if none provided.'
+    required: false
+  aws_ecs_lb_www_to_apex_redirect:
+    description: 'Toggle redirect from www to apex domain. aws_r53_domain_name must be set.'
+    required: false
+  aws_ecs_autoscaling_enable:
+    description: 'Toggle ecs autoscaling policy'
+    required: false
+  aws_ecs_autoscaling_max_nodes:
+    description: 'Max ammount of nodes to scale up to.'
+    required: false
+  aws_ecs_autoscaling_min_nodes:
+    description: 'Min ammount of nodes to scale down to.'
+    required: false
+  aws_ecs_autoscaling_max_mem:
+    description: 'Some'
+    required: false
+  aws_ecs_autoscaling_max_cpu:
+    description: 'Some'
+    required: false
+  aws_ecs_cloudwatch_enable:
+    description: "Toggle cloudwatch for ECS. Default 'false'"
+    required: false
+  aws_ecs_cloudwatch_lg_name:
+    description: "Log group name. Will default to aws_identifier if none."
+    required: false
+  aws_ecs_cloudwatch_skip_destroy:
+    description: "Toggle deletion or not when destroying the stack."
+    required: false
+  aws_ecs_cloudwatch_retention_days:
+    description: "Number of days to retain logs. 0 to never expire. Default '14'"
+    required: false
+  aws_ecs_additional_tags:
+    description: 'A list of strings that will be added to created resources'
+    required: false
+  # AWS ECR
+  aws_ecr_repo_create:
+    description: 'Determines whether a repository will be created'
+    required: false
+  aws_ecr_repo_type:
+    description: 'The type of repository to create. Either `public` or `private`. Defaults to `private`.'
+    required: false
+  aws_ecr_repo_name:
+    description: 'The name of the repository. If none, will use the default resource-identifier.'
+    required: false
+  aws_ecr_repo_mutable:
+    description: 'The tag mutability setting for the repository. Set this to true if `MUTABLE`. Defaults to false, so `IMMUTABLE`'
+    required: false
+  aws_ecr_repo_encryption_type:
+    description: 'The encryption type for the repository. Must be one of: `KMS` or `AES256`. Defaults to `AES256`'
+    required: false
+  aws_ecr_repo_encryption_key_arn:
+    description: 'The ARN of the KMS key to use when encryption_type is `KMS`. If not specified, uses the default AWS managed key for ECR'
+    required: false
+  aws_ecr_repo_force_destroy:
+    description: 'If `true`, will delete the repository even if it contains images. Defaults to `false`'
+    required: false
+  aws_ecr_repo_image_scan:
+    description: 'Indicates whether images are scanned after being pushed to the repository (`true`) (default) or not scanned (`false`)'
+    required: false
+  aws_ecr_registry_scan_rule:
+    description: 'One or multiple blocks specifying scanning rules to determine which repository filters are used and at what frequency scanning will occur. Use []'
+    required: false
+  aws_ecr_registry_pull_through_cache_rules:
+    description: 'List of pull through cache rules to create. Use map(map(string)). '
+    required: false
+  aws_ecr_registry_scan_config:
+    description: 'Scanning type to set for the registry. Can be either `ENHANCED` or `BASIC`. Defaults to null.'
+    required: false
+  aws_ecr_registry_replication_rules_input:
+    description: 'The replication rules for a replication configuration. A maximum of 10 are allowed. Defaults to `[]`.'
+    required: false
+  aws_ecr_repo_policy_attach:
+    description: 'Determines whether a repository policy will be attached to the repository. Defaults to `true`.'
+    required: false
+  aws_ecr_repo_policy_create:
+    description: 'Determines whether a repository policy will be created. Defaults to `true`.'
+    required: false
+  aws_ecr_repo_policy_input:
+    description: 'The JSON policy to apply to the repository. If defined overrides the default policy'
+    required: false
+  aws_ecr_repo_read_arn:
+    description: 'The ARNs of the IAM users/roles that have read access to the repository. (Comma separated list)'
+    required: false
+  aws_ecr_repo_write_arn:
+    description: 'The ARNs of the IAM users/roles that have read/write access to the repository. (Comma separated list)'
+    required: false
+  aws_ecr_repo_read_external_aws_account:
+    description: 'The ARNs of the external AWS accounts that have read access to the repository'
+    required: false
+  aws_ecr_repo_write_external_aws_account:
+    description: 'The ARNs of the external AWS accounts that have write access to the repository'
+    required: false
+  aws_ecr_repo_read_arn_lambda:
+    description: 'The ARNs of the Lambda service roles that have read access to the repository. (Comma separated list)'
+    required: false
+  aws_ecr_lifecycle_policy_input:
+    description: 'The policy document. This is a JSON formatted string. See more details about [Policy Parameters](http://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html#lifecycle_policy_parameters) in the official AWS docs'
+    required: false
+  aws_ecr_public_repo_catalog:
+    description: 'Catalog data configuration for the repository. Defaults to `{}`.'
+    required: false
+  aws_ecr_registry_policy_input:
+    description: 'The policy document. This is a JSON formatted string'
+    required: false
+  aws_ecr_additional_tags:
+    description: 'A list of strings that will be added to created resources'
+    required: false
+  # AWS EKS
+  aws_eks_create:
+    description: 'Define if an EKS cluster should be created'
+    required: false
+  aws_eks_security_group_name_cluster:
+    description: "SG for ${var.aws_resource_identifier} - ${var.aws_eks_environment} - EKS Master"
+    required: false
+  aws_eks_security_group_name_node:
+    description: "SG for ${var.aws_resource_identifier} - ${var.aws_eks_environment} - EKS Worker"
+    required: false
+  aws_eks_environment:
+    description: 'Specify the eks environment name. Defaults to env'
+    required: false
+  aws_eks_management_cidr:
+    description: 'Enter your public IP or CIDR to add it to the allowed master security groups port 443.'
+    required: false
+  aws_eks_allowed_ports:
+    description: 'Allow incoming traffic from this port. Accepts comma separated values, matching 1 to 1 with aws_eks_allowed_ports_cidr.'
+    required: false
+  aws_eks_allowed_ports_cidr:
+    description: 'Allow incoming traffic from this CIDR block. Accepts comma separated values, matching 1 to 1 with aws_eks_allowed_ports. If none defined, will allow all incoming traffic.'
+    required: false
+  aws_eks_cluster_name:
+    description: "EKS Cluster name. Defaults to eks-cluster"
+    required: false
+  aws_eks_cluster_admin_role_arn:
+    description: "Role ARN to grant cluster-admin permissions"
+    required: false
+  aws_eks_cluster_log_types:
+    description: "EKS Log types, comma separated list. Defaults to api,audit,authenticator"
+    required: false
+  aws_eks_cluster_log_retention_days:
+    description: "Days to store logs. Defaults to 7."
+    required: false
+  aws_eks_cluster_log_skip_destroy:
+    description: "Skip deletion of cluster logs if set to true"
+    required: false
+  aws_eks_cluster_version:
+    description: 'Specify the k8s cluster version'
+    required: false
+  aws_eks_instance_type:
+    description: 'enter the aws instance type'
+    required: false
+  aws_eks_instance_ami_id:
+    description: 'AWS AMI ID. Will default to the latest Amazon EKS Node image for the cluster version.'
+    required: false
+  aws_eks_instance_user_data_file:
+    description: 'Relative path in the repo for a user provided script to be executed with Terraform EKS Node creation.'
+    required: false
+  aws_eks_ec2_key_pair:
+    description: 'Enter the existing ec2 key pair for worker nodes. If none, one will be created.'
+    required: false
+  aws_eks_store_keypair_sm:
+    description: 'If true, will store the newly created keys in Secret Manager'
+    required: false
+  aws_eks_desired_capacity:
+    description: 'Enter the desired capacity for the worker nodes'
+    required: false
+  aws_eks_max_size:
+    description: 'Enter the max_size for the worker nodes'
+    required: false
+  aws_eks_min_size:
+    description: 'Enter the min_size for the worker nodes'
+    required: false
+  aws_eks_additional_tags:
+    description: 'A JSON object of additional tags that will be included on created resources. Example: `{"key1": "value1", "key2": "value2"}`'
+    required: false
+outputs:
+  # VPC
+  aws_vpc_id:
+    description: "The selected VPC ID used."
+    value: ${{ steps.deploy.outputs.aws_vpc_id }}
+  # EC2
+  vm_url:
+    description: "The URL of the generated app"
+    value: ${{ steps.deploy.outputs.vm_url }}
+  instance_endpoint:
+    description: "The URL of the generated ec2 instance"
+    value: ${{ steps.deploy.outputs.instance_endpoint }}
+  ec2_sg_id:
+    description: "SG ID for the EC2 instance"
+    value: ${{ steps.deploy.outputs.ec2_sg_id }}
+  # EFS
+  aws_efs_fs_id:
+    description: "EFS FS ID"
+    value: ${{ steps.deploy.outputs.aws_efs_fs_id }}
+  aws_efs_replica_fs_id:
+    description: "EFS FS Replica ID"
+    value: ${{ steps.deploy.outputs.aws_efs_replica_fs_id }}
+  aws_efs_sg_id:
+    description: "EFS FS SG ID"
+    value: ${{ steps.deploy.outputs.aws_efs_sg_id }}
+  # RDS
+  db_endpoint:
+    description: "RDS Endpoint"
+    value: ${{ steps.deploy.outputs.db_endpoint }}
+  db_secret_details_name:
+    description: "AWS Secret name containing db credentials"
+    value: ${{ steps.deploy.outputs.db_secret_details_name }}
+  db_sg_id:
+    description: "SG ID for the RDS instance"
+    value: ${{ steps.deploy.outputs.db_sg_id }}
+  db_proxy_rds_endpoint:
+    description: "Database proxy endpoint"
+    value: ${{ steps.deploy.outputs.db_proxy_rds_endpoint }}
+  db_proxy_secret_name_rds:
+    description: "AWS Secret name containing proxy credentials"
+    value: ${{ steps.deploy.outputs.db_proxy_secret_name_rds }}
+  db_proxy_sg_id_rds:
+    description: "SG ID for the RDS Proxy instance"
+    value: ${{ steps.deploy.outputs.db_proxy_sg_id_rds }}
+  # Aurora
+  aurora_db_endpoint:
+    description: "Aurora Endpoint"
+    value: ${{ steps.deploy.outputs.aurora_db_endpoint }}
+  aurora_db_secret_details_name:
+    description: "AWS Secret name containing db credentials"
+    value: ${{ steps.deploy.outputs.aurora_db_secret_details_name }}
+  aurora_db_sg_id:
+    description: "SG ID for the Aurora instance"
+    value: ${{ steps.deploy.outputs.aurora_db_sg_id }}
+  aurora_proxy_endpoint:
+    description: "Database proxy endpoint"
+    value: ${{ steps.deploy.outputs.aurora_proxy_endpoint }}
+  aurora_proxy_secret_name:
+    description: "AWS Secret name containing proxy credentials"
+    value: ${{ steps.deploy.outputs.aurora_proxy_secret_name }}
+  aurora_proxy_sg_id:
+    description: "SG ID for the RDS Proxy instance"
+    value: ${{ steps.deploy.outputs.aurora_proxy_sg_id }}
+  # DB Proxy
+  db_proxy_endpoint:
+    description: "Database proxy endpoint"
+    value: ${{ steps.deploy.outputs.db_proxy_endpoint }}
+  db_proxy_secret_name:
+    description: "Database proxy secret_name"
+    value: ${{ steps.deploy.outputs.db_proxy_secret_name }}
+  db_proxy_sg_id:
+    description: "SG ID for the RDS Proxy instance"
+    value: ${{ steps.deploy.outputs.db_proxy_sg_id }}
+  # ECS
+  ecs_load_balancer_dns:
+    description: "ECS ALB DNS Record"
+    value: ${{ steps.deploy.outputs.ecs_load_balancer_dns }}
+  ecs_dns_record:
+    description: "ECS DNS URL"
+    value: ${{ steps.deploy.outputs.ecs_dns_record }}
+  ecs_sg_id:
+    description: "ECS SG ID"
+    value: ${{ steps.deploy.outputs.ecs_sg_id }}
+  ecs_lb_sg_id:
+    description: "ECS LB SG ID"
+    value: ${{ steps.deploy.outputs.ecs_lb_sg_id }}
+  # ECR
+  ecr_repository_arn:
+    description: "ECR Repo ARN"
+    value: ${{ steps.deploy.outputs.ecr_repository_arn }}
+  ecr_repository_url:
+    description: "ECR Repo URL"
+    value: ${{ steps.deploy.outputs.ecr_repository_url }}
+  # REDIS
+  redis_endpoint:
+    description: "Redis Endpoint"
+    value: ${{ steps.deploy.outputs.redis_endpoint }}
+  redis_secret_name:
+    description: "Redis Secret name"
+    value: ${{ steps.deploy.outputs.redis_secret_name }}
+  redis_connection_string_secret:
+    description: "Redis secret containing complete URL to connect directly. (e.g. rediss://user:pass@host:port)"
+    value: ${{ steps.deploy.outputs.redis_connection_string_secret }}
+  redis_sg_id:
+    description: "Redis SG ID"
+    value: ${{ steps.deploy.outputs.redis_sg_id }}
+  # EKS
+  eks_cluster_name:
+    description: "EKS Cluster name"
+    value: ${{ steps.deploy.outputs.eks_cluster_name }}
+  eks_cluster_role_arn:
+    description: "EKS Role ARN"
+    value: ${{ steps.deploy.outputs.eks_cluster_role_arn }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - name: Checkout if required
+      if: ${{ inputs.checkout == 'true' }}
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+    - name: Deploy with BitOps
+      id: deploy
+      shell: bash
+      env:
+        # Action defaults
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        BITOPS_ENVIRONMENT: deployment
+        BITOPS_FAST_FAIL: 'true'
+        # Action main inputs
+        BITOPS_SKIP_RUN: ${{ inputs.bitops_skip_run }}
+        BITOPS_CODE_ONLY: ${{ inputs.bitops_code_only }}
+        BITOPS_EXTRA_ENV_VARS: ${{ inputs.bitops_extra_env_vars }}
+        BITOPS_EXTRA_ENV_VARS_FILE: ${{ inputs.bitops_extra_env_vars_file }}
+        TF_STACK_DESTROY: ${{ inputs.tf_stack_destroy }}
+        TF_STATE_FILE_NAME: ${{ inputs.tf_state_file_name }}
+        TF_STATE_FILE_NAME_APPEND: ${{ inputs.tf_state_file_name_append }}
+        TF_STATE_BUCKET: ${{ inputs.tf_state_bucket }}
+        TF_STATE_BUCKET_DESTROY: ${{ inputs.tf_state_bucket_destroy }}
+        TF_STATE_BUCKET_PROVIDER: ${{ inputs.tf_state_bucket_provider }}
+        TF_TARGETS: ${{ inputs.tf_targets }}
+        ANSIBLE_SKIP: ${{ inputs.ansible_skip }}
+        ANSIBLE_SSH_TO_PRIVATE_IP: ${{ inputs.ansible_ssh_to_private_ip }}
+        ANSIBLE_START_DOCKER_TIMEOUT: ${{ inputs.ansible_start_docker_timeout }}
+        # Deployment repo
+        GH_DEPLOYMENT_INPUT_TERRAFORM: ${{ inputs.gh_deployment_input_terraform }}
+        GH_DEPLOYMENT_INPUT_ANSIBLE: ${{ inputs.gh_deployment_input_ansible }}
+        GH_DEPLOYMENT_INPUT_ANSIBLE_PLAYBOOK: ${{ inputs.gh_deployment_input_ansible_playbook }}
+        GH_DEPLOYMENT_INPUT_ANSIBLE_EXTRA_VARS_FILE: ${{ inputs.gh_deployment_input_ansible_extra_vars_file }}
+        GH_DEPLOYMENT_ACTION_INPUT_ANSIBLE_EXTRA_VARS_FILE: ${{ inputs.gh_deployment_action_input_ansible_extra_vars_file }}
+        GH_DEPLOYMENT_INPUT_HELM_CHARTS: ${{ inputs.gh_deployment_input_helm_charts }}
+        # Action repo
+        GH_ACTION_REPO: ${{ inputs.gh_action_repo }}
+        GH_ACTION_INPUT_TERRAFORM: ${{ inputs.gh_action_input_terraform }}
+        GH_ACTION_INPUT_ANSIBLE: ${{ inputs.gh_action_input_ansible }}
+        GH_ACTION_INPUT_ANSIBLE_PLAYBOOK: ${{ inputs.gh_action_input_ansible_playbook }}
+        GH_ACTION_INPUT_HELM_CHARTS: ${{ inputs.gh_action_input_helm_charts }}
+        # AWS Specific
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
+        AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
+        AWS_DEFAULT_REGION: ${{ inputs.aws_default_region }}
+        AWS_RESOURCE_IDENTIFIER: ${{ inputs.aws_resource_identifier }}
+        AWS_ADDITIONAL_TAGS: ${{ inputs.aws_additional_tags }}
+        # ENV Files
+        ENV_AWS_SECRET: ${{ inputs.env_aws_secret }}
+        ENV_REPO: ${{ inputs.env_repo }}
+        ENV_GHS: ${{ inputs.env_ghs }}
+        ENV_GHV: ${{ inputs.env_ghv }}
+        # EC2 Instance
+        AWS_EC2_INSTANCE_CREATE: ${{ inputs.aws_ec2_instance_create }}
+        AWS_EC2_AMI_FILTER: ${{ inputs.aws_ec2_ami_filter }}
+        AWS_EC2_AMI_OWNER: ${{ inputs.aws_ec2_ami_owner }}
+        AWS_EC2_AMI_ID: ${{ inputs.aws_ec2_ami_id }}
+        AWS_EC2_AMI_UPDATE: ${{ inputs. aws_ec2_ami_update }}
+        AWS_EC2_IAM_INSTANCE_PROFILE: ${{ inputs.aws_ec2_iam_instance_profile }}
+        AWS_EC2_INSTANCE_TYPE: ${{ inputs.aws_ec2_instance_type }}
+        AWS_EC2_INSTANCE_ROOT_VOL_SIZE: ${{ inputs.aws_ec2_instance_root_vol_size }}
+        AWS_EC2_INSTANCE_ROOT_VOL_PRESERVE: ${{ inputs.aws_ec2_instance_root_vol_preserve }}
+        AWS_EC2_SECURITY_GROUP_NAME: ${{ inputs.aws_ec2_security_group_name }}
+        AWS_EC2_CREATE_KEYPAIR_SM: ${{ inputs.aws_ec2_create_keypair_sm }}
+        AWS_EC2_INSTANCE_PUBLIC_IP: ${{ inputs.aws_ec2_instance_public_ip }}
+        AWS_EC2_PORT_LIST: ${{ inputs.aws_ec2_port_list }}
+        AWS_EC2_USER_DATA_FILE: ${{ inputs.aws_ec2_user_data_file }}
+        AWS_EC2_USER_DATA_REPLACE_ON_CHANGE: ${{ inputs.aws_ec2_user_data_replace_on_change }}
+        AWS_EC2_ADDITIONAL_TAGS: ${{ inputs.aws_ec2_additional_tags }}
+        ## AWS VPC
+        AWS_VPC_CREATE: ${{ inputs.aws_vpc_create }}
+        AWS_VPC_NAME: ${{ inputs.aws_vpc_name }}
+        AWS_VPC_CIDR_BLOCK: ${{ inputs.aws_vpc_cidr_block }}
+        AWS_VPC_PUBLIC_SUBNETS: ${{ inputs.aws_vpc_public_subnets }}
+        AWS_VPC_PRIVATE_SUBNETS: ${{ inputs.aws_vpc_private_subnets }}
+        AWS_VPC_AVAILABILITY_ZONES: ${{ inputs.aws_vpc_availability_zones }}
+        AWS_VPC_ID: ${{ inputs.aws_vpc_id }}
+        AWS_VPC_SUBNET_ID: ${{ inputs.aws_vpc_subnet_id }}
+        AWS_VPC_ENABLE_NAT_GATEWAY: ${{ inputs.aws_vpc_enable_nat_gateway }}
+        AWS_VPC_SINGLE_NAT_GATEWAY: ${{ inputs.aws_vpc_single_nat_gateway }}
+        AWS_VPC_EXTERNAL_NAT_IP_IDS: ${{ inputs.aws_vpc_external_nat_ip_ids }}
+        AWS_VPC_ADDITIONAL_TAGS: ${{ inputs.aws_vpc_additional_tags }}
+        # AWS Route53 Domains abd Certificates
+        AWS_R53_ENABLE: ${{ inputs.aws_r53_enable }}
+        AWS_R53_DOMAIN_NAME: ${{ inputs.aws_r53_domain_name }}
+        AWS_R53_SUB_DOMAIN_NAME: ${{ inputs.aws_r53_sub_domain_name }}
+        AWS_R53_ROOT_DOMAIN_DEPLOY: ${{ inputs.aws_r53_root_domain_deploy }}
+        AWS_R53_ENABLE_CERT: ${{ inputs.aws_r53_enable_cert }}
+        AWS_R53_CERT_ARN: ${{ inputs.aws_r53_cert_arn }}
+        AWS_R53_CREATE_ROOT_CERT: ${{ inputs.aws_r53_create_root_cert }}
+        AWS_R53_CREATE_SUB_CERT: ${{ inputs.aws_r53_create_sub_cert }}
+        AWS_R53_ADDITIONAL_TAGS: ${{ inputs.aws_r53_additional_tags }}
+        # AWS ELB
+        AWS_ELB_CREATE: ${{ inputs.aws_elb_create }}
+        AWS_ELB_SECURITY_GROUP_NAME: ${{ inputs.aws_elb_security_group_name }}
+        AWS_ELB_APP_PORT: ${{ inputs.aws_elb_app_port }}
+        AWS_ELB_APP_PROTOCOL: ${{ inputs.aws_elb_app_protocol }}
+        AWS_ELB_LISTEN_PORT: ${{ inputs.aws_elb_listen_port }}
+        AWS_ELB_LISTEN_PROTOCOL: ${{ inputs.aws_elb_listen_protocol }}
+        AWS_ELB_HEALTHCHECK: ${{ inputs.aws_elb_healthcheck }}
+        AWS_ELB_ACCESS_LOG_BUCKET_NAME: ${{ inputs.aws_elb_access_log_bucket_name }}
+        AWS_ELB_ACCESS_LOG_EXPIRE: ${{ inputs.aws_elb_access_log_expire }}
+        AWS_ELB_ADDITIONAL_TAGS: ${{ inputs.aws_elb_additional_tags }}
+        # AWS ALB
+        AWS_ALB_CREATE: ${{ inputs.aws_alb_create }}
+        AWS_ALB_SECURITY_GROUP_NAME: ${{ inputs.aws_alb_security_group_name }}
+        AWS_ALB_APP_PORT: ${{ inputs.aws_alb_app_port }}
+        AWS_ALB_APP_PROTOCOL: ${{ inputs.aws_alb_app_protocol }}
+        AWS_ALB_LISTEN_PORT: ${{ inputs.aws_alb_listen_port }}
+        AWS_ALB_LISTEN_PROTOCOL: ${{ inputs.aws_alb_listen_protocol }}
+        AWS_ALB_REDIRECT_ENABLE: ${{ inputs.aws_alb_redirect_enable }}
+        AWS_ALB_WWW_TO_APEX_REDIRECT: ${{ inputs.aws_alb_www_to_apex_redirect }}
+        AWS_ALB_HEALTHCHECK_PATH: ${{ inputs.aws_alb_healthcheck_path }}
+        AWS_ALB_HEALTHCHECK_PROTOCOL: ${{ inputs.aws_alb_healthcheck_protocol }}
+        AWS_ALB_SSL_POLICY: ${{ inputs.aws_alb_ssl_policy }}
+        AWS_ALB_ACCESS_LOG_ENABLED: ${{ inputs.aws_alb_access_log_enabled }}
+        AWS_ALB_ACCESS_LOG_BUCKET_NAME: ${{ inputs.aws_alb_access_log_bucket_name }}
+        AWS_ALB_ACCESS_LOG_EXPIRE: ${{ inputs.aws_alb_access_log_expire }}
+        AWS_ALB_ADDITIONAL_TAGS: ${{ inputs.aws_alb_additional_tags }}
+        # AWS WAF
+        AWS_WAF_ENABLE: ${{ inputs.aws_waf_enable }}
+        AWS_WAF_LOGGING_ENABLE: ${{ inputs.aws_waf_logging_enable }}
+        AWS_WAF_LOG_RETENTION_DAYS: ${{ inputs.aws_waf_log_retention_days }}
+        AWS_WAF_ADDITIONAL_TAGS: ${{ inputs.aws_waf_additional_tags }}
+        AWS_WAF_RULE_RATE_LIMIT: ${{ inputs.aws_waf_rule_rate_limit }}
+        AWS_WAF_RULE_RATE_LIMIT_PRIORITY: ${{ inputs.aws_waf_rule_rate_limit_priority }}
+        AWS_WAF_RULE_MANAGED_RULES: ${{ inputs.aws_waf_rule_managed_rules }}
+        AWS_WAF_RULE_MANAGED_RULES_PRIORITY: ${{ inputs.aws_waf_rule_managed_rules_priority }}
+        AWS_WAF_RULE_MANAGED_BAD_INPUTS: ${{ inputs.aws_waf_rule_managed_bad_inputs }}
+        AWS_WAF_RULE_MANAGED_BAD_INPUTS_PRIORITY: ${{ inputs.aws_waf_rule_managed_bad_inputs_priority }}
+        AWS_WAF_RULE_IP_REPUTATION: ${{ inputs.aws_waf_rule_ip_reputation }}
+        AWS_WAF_RULE_IP_REPUTATION_PRIORITY: ${{ inputs.aws_waf_rule_ip_reputation_priority }}
+        AWS_WAF_RULE_ANONYMOUS_IP: ${{ inputs.aws_waf_rule_anonymous_ip }}
+        AWS_WAF_RULE_ANONYMOUS_IP_PRIORITY: ${{ inputs.aws_waf_rule_anonymous_ip_priority }}
+        AWS_WAF_RULE_BOT_CONTROL: ${{ inputs.aws_waf_rule_bot_control }}
+        AWS_WAF_RULE_BOT_CONTROL_PRIORITY: ${{ inputs.aws_waf_rule_bot_control_priority }}
+        AWS_WAF_RULE_GEO_BLOCK_COUNTRIES: ${{ inputs.aws_waf_rule_geo_block_countries }}
+        AWS_WAF_RULE_GEO_BLOCK_COUNTRIES_PRIORITY: ${{ inputs.aws_waf_rule_geo_block_countries_priority }}
+        AWS_WAF_RULE_GEO_ALLOW_ONLY_COUNTRIES: ${{ inputs.aws_waf_rule_geo_allow_only_countries }}
+        AWS_WAF_RULE_GEO_ALLOW_ONLY_COUNTRIES_PRIORITY: ${{ inputs.aws_waf_rule_geo_allow_only_countries_priority }}
+        AWS_WAF_RULE_USER_ARN: ${{ inputs.aws_waf_rule_user_arn }}
+        AWS_WAF_RULE_USER_ARN_PRIORITY: ${{ inputs.aws_waf_rule_user_arn_priority }}
+        AWS_WAF_RULE_SQLI: ${{ inputs.aws_waf_rule_sqli }}
+        AWS_WAF_RULE_SQLI_PRIORITY: ${{ inputs.aws_waf_rule_sqli_priority }}
+        AWS_WAF_RULE_LINUX: ${{ inputs.aws_waf_rule_linux }}
+        AWS_WAF_RULE_LINUX_PRIORITY: ${{ inputs.aws_waf_rule_linux_priority }}
+        AWS_WAF_RULE_UNIX: ${{ inputs.aws_waf_rule_unix }}
+        AWS_WAF_RULE_UNIX_PRIORITY: ${{ inputs.aws_waf_rule_unix_priority }}
+        AWS_WAF_RULE_ADMIN_PROTECTION: ${{ inputs.aws_waf_rule_admin_protection }}
+        AWS_WAF_RULE_ADMIN_PROTECTION_PRIORITY: ${{ inputs.aws_waf_rule_admin_protection_priority }}
+        # AWS EFS
+        AWS_EFS_CREATE: ${{ inputs.aws_efs_create }}
+        AWS_EFS_FS_ID: ${{ inputs.aws_efs_fs_id }}
+        AWS_EFS_CREATE_MOUNT_TARGET: ${{ inputs.aws_efs_create_mount_target }}
+        AWS_EFS_CREATE_HA: ${{ inputs.aws_efs_create_ha }}
+        AWS_EFS_VOL_ENCRYPTED: ${{ inputs.aws_efs_vol_encrypted }}
+        AWS_EFS_KMS_KEY_ID: ${{ inputs.aws_efs_kms_key_id }}
+        AWS_EFS_PERFORMANCE_MODE: ${{ inputs.aws_efs_performance_mode }}
+        AWS_EFS_THROUGHPUT_MODE: ${{ inputs.aws_efs_throughput_mode }}
+        AWS_EFS_THROUGHPUT_SPEED: ${{ inputs.aws_efs_throughput_speed }}
+        AWS_EFS_SECURITY_GROUP_NAME: ${{ inputs.aws_efs_security_group_name }}
+        AWS_EFS_ALLOWED_SECURITY_GROUPS: ${{ inputs.aws_efs_allowed_security_groups }}
+        AWS_EFS_INGRESS_ALLOW_ALL: ${{ inputs.aws_efs_ingress_allow_all }}
+        AWS_EFS_CREATE_REPLICA: ${{ inputs.aws_efs_create_replica }}
+        AWS_EFS_REPLICATION_DESTINATION: ${{ inputs.aws_efs_replication_destination }}
+        AWS_EFS_ENABLE_BACKUP_POLICY: ${{ inputs.aws_efs_enable_backup_policy }}
+        AWS_EFS_TRANSITION_TO_INACTIVE: ${{ inputs.aws_efs_transition_to_inactive }}
+        AWS_EFS_MOUNT_TARGET: ${{ inputs.aws_efs_mount_target }}
+        AWS_EFS_EC2_MOUNT_POINT: ${{ inputs.aws_efs_ec2_mount_point }}
+        AWS_EFS_ADDITIONAL_TAGS: ${{ inputs.aws_efs_additional_tags }}
+        # AWS RDS
+        AWS_RDS_DB_ENABLE: ${{ inputs.aws_rds_db_enable }}
+        AWS_RDS_DB_PROXY: ${{ inputs.aws_rds_db_proxy }}
+        AWS_RDS_DB_IDENTIFIER: ${{ inputs.aws_rds_db_identifier }}
+        AWS_RDS_DB_NAME: ${{ inputs.aws_rds_db_name }}
+        AWS_RDS_DB_USER: ${{ inputs.aws_rds_db_user }}
+        AWS_RDS_DB_ENGINE: ${{ inputs.aws_rds_db_engine }}
+        AWS_RDS_DB_ENGINE_VERSION: ${{ inputs.aws_rds_db_engine_version }}
+        AWS_RDS_DB_CA_CERT_IDENTIFIER: ${{ inputs.aws_rds_db_ca_cert_identifier }}
+        AWS_RDS_DB_SECURITY_GROUP_NAME: ${{ inputs.aws_rds_db_security_group_name }}
+        AWS_RDS_DB_ALLOWED_SECURITY_GROUPS: ${{ inputs.aws_rds_db_allowed_security_groups }}
+        AWS_RDS_DB_INGRESS_ALLOW_ALL: ${{ inputs.aws_rds_db_ingress_allow_all }}
+        AWS_RDS_DB_PUBLICLY_ACCESSIBLE: ${{ inputs.aws_rds_db_publicly_accessible }}
+        AWS_RDS_DB_PORT: ${{ inputs.aws_rds_db_port }}
+        AWS_RDS_DB_SUBNETS: ${{ inputs.aws_rds_db_subnets }}
+        AWS_RDS_DB_ALLOCATED_STORAGE: ${{ inputs.aws_rds_db_allocated_storage }}
+        AWS_RDS_DB_MAX_ALLOCATED_STORAGE: ${{ inputs.aws_rds_db_max_allocated_storage }}
+        AWS_RDS_DB_STORAGE_ENCRYPTED: ${{ inputs.aws_rds_db_storage_encrypted }}
+        AWS_RDS_DB_STORAGE_TYPE: ${{ inputs.aws_rds_db_storage_type }}
+        AWS_RDS_DB_KMS_KEY_ID: ${{ inputs.aws_rds_db_kms_key_id }}
+        AWS_RDS_DB_INSTANCE_CLASS: ${{ inputs.aws_rds_db_instance_class }}
+        AWS_RDS_DB_FINAL_SNAPSHOT: ${{ inputs.aws_rds_db_final_snapshot }}
+        AWS_RDS_DB_RESTORE_SNAPSHOT_IDENTIFIER: ${{ inputs.aws_rds_db_restore_snapshot_identifier }}
+        AWS_RDS_DB_CLOUDWATCH_LOGS_EXPORTS: ${{ inputs.aws_rds_db_cloudwatch_logs_exports }}
+        AWS_RDS_DB_MULTI_AZ: ${{ inputs.aws_rds_db_multi_az }}
+        AWS_RDS_DB_MAINTENANCE_WINDOWS: ${{ inputs.aws_rds_db_maintenance_window }}
+        AWS_RDS_DB_APPLY_IMMEDIATELY: ${{ inputs.aws_rds_db_apply_immediately }}
+        AWS_RDS_DB_PERFORMANCE_INSIGHTS_ENABLE: ${{ inputs.aws_rds_db_performance_insights_enable }}
+        AWS_RDS_DB_PERFORMANCE_INSIGHTS_RETENTION: ${{ inputs.aws_rds_db_performance_insights_retention }}
+        AWS_RDS_DB_PERFORMANCE_INSIGHTS_KMS_KEY_ID: ${{ inputs.aws_rds_db_performance_insights_kms_key_id }}
+        AWS_RDS_DB_MONITORING_INTERVAL: ${{ inputs.aws_rds_db_monitoring_interval }}
+        AWS_RDS_DB_MONITORING_ROLE_ARN: ${{ inputs.aws_rds_db_monitoring_role_arn }}
+        AWS_RDS_DB_INSIGHTS_MODE: ${{ inputs.aws_rds_db_insights_mode }}
+        AWS_RDS_DB_ALLOW_MAJOR_VERSION_UPGRADE: ${{ inputs.aws_rds_db_allow_major_version_upgrade }}
+        AWS_RDS_DB_AUTO_MINOR_VERSION_UPGRADE: ${{ inputs.aws_rds_db_auto_minor_version_upgrade }}
+        AWS_RDS_DB_BACKUP_RETENTION_PERIOD: ${{ inputs.aws_rds_db_backup_retention_period }}
+        AWS_RDS_DB_BACKUP_WINDOW: ${{ inputs.aws_rds_db_backup_window }}
+        AWS_RDS_DB_COPY_TAGS_TO_SNAPSHOT: ${{ inputs.aws_rds_db_copy_tags_to_snapshot }}
+        AWS_RDS_DB_ADDITIONAL_TAGS: ${{ inputs.aws_rds_db_additional_tags }}
+        # AWS AURORA
+        AWS_AURORA_ENABLE: ${{ inputs.aws_aurora_enable }}
+        AWS_AURORA_PROXY: ${{ inputs.aws_aurora_proxy }}
+        AWS_AURORA_CLUSTER_NAME: ${{ inputs.aws_aurora_cluster_name }}
+        AWS_AURORA_ENGINE: ${{ inputs.aws_aurora_engine }}
+        AWS_AURORA_ENGINE_VERSION: ${{ inputs.aws_aurora_engine_version }}
+        AWS_AURORA_ENGINE_MODE: ${{ inputs.aws_aurora_engine_mode }}
+        AWS_AURORA_AVAILABILITY_ZONES: ${{ inputs.aws_aurora_availability_zones }}
+        AWS_AURORA_CLUSTER_APPLY_IMMEDIATELY: ${{ inputs.aws_aurora_cluster_apply_immediately }}
+        AWS_AURORA_ALLOCATED_STORAGE: ${{ inputs.aws_aurora_allocated_storage }}
+        AWS_AURORA_STORAGE_ENCRYPTED: ${{ inputs.aws_aurora_storage_encrypted }}
+        AWS_AURORA_KMS_KEY_ID: ${{ inputs.aws_aurora_kms_key_id }}
+        AWS_AURORA_STORAGE_TYPE: ${{ inputs.aws_aurora_storage_type }}
+        AWS_AURORA_STORAGE_IOPS: ${{ inputs.aws_aurora_storage_iops }}
+        AWS_AURORA_DATABASE_NAME: ${{ inputs.aws_aurora_database_name }}
+        AWS_AURORA_MASTER_USERNAME: ${{ inputs.aws_aurora_master_username }}
+        AWS_AURORA_DATABASE_GROUP_FAMILY: ${{ inputs.aws_aurora_database_group_family }}
+        AWS_AURORA_IAM_AUTH_ENABLED: ${{ inputs.aws_aurora_iam_auth_enabled }}
+        AWS_AURORA_IAM_ROLES: ${{ inputs.aws_aurora_iam_roles }}
+        AWS_AURORA_CLUSTER_DB_INSTANCE_CLASS: ${{ inputs.aws_aurora_cluster_db_instance_class }}
+        AWS_AURORA_SECURITY_GROUP_NAME: ${{ inputs.aws_aurora_security_group_name }}
+        AWS_AURORA_INGRESS_ALLOW_ALL: ${{ inputs.aws_aurora_ingress_allow_all }}
+        AWS_AURORA_ALLOWED_SECURITY_GROUPS: ${{ inputs.aws_aurora_allowed_security_groups }}
+        AWS_AURORA_DB_PUBLICLY_ACCESSIBLE: ${{ inputs.aws_aurora_db_publicly_accessible }}
+        AWS_AURORA_SUBNETS: ${{ inputs.aws_aurora_subnets }}
+        AWS_AURORA_DATABASE_PORT: ${{ inputs.aws_aurora_database_port }}
+        AWS_AURORA_CLOUDWATCH_enable: ${{ inputs.aws_aurora_cloudwatch_enable }}
+        AWS_AURORA_CLOUDWATCH_log_type: ${{ inputs.aws_aurora_cloudwatch_log_type }}
+        AWS_AURORA_CLOUDWATCH_retention_days: ${{ inputs.aws_aurora_cloudwatch_retention_days }}
+        AWS_AURORA_BACKTRACK_WINDOW: ${{ inputs.aws_aurora_backtrack_window }}
+        AWS_AURORA_BACKUP_RETENTION_PERIOD: ${{ inputs.aws_aurora_backup_retention_period }}
+        AWS_AURORA_BACKUP_WINDOW: ${{ inputs.aws_aurora_backup_window }}
+        AWS_AURORA_MAINTENANCE_WINDOW: ${{ inputs.aws_aurora_maintenance_window }}
+        AWS_AURORA_DATABASE_FINAL_SNAPSHOT: ${{ inputs.aws_aurora_database_final_snapshot }}
+        AWS_AURORA_DELETION_PROTECTION: ${{ inputs.aws_aurora_deletion_protection }}
+        AWS_AURORA_DELETE_AUTO_BACKUPS: ${{ inputs.aws_aurora_delete_auto_backups }}
+        AWS_AURORA_RESTORE_SNAPSHOT_ID: ${{ inputs.aws_aurora_restore_snapshot_id }}
+        AWS_AURORA_RESTORE_TO_POINT_IN_TIME: ${{ inputs.aws_aurora_restore_to_point_in_time }}
+        AWS_AURORA_SNAPSHOT_NAME: ${{ inputs.aws_aurora_snapshot_name }}
+        AWS_AURORA_SNAPSHOT_OVERWRITE: ${{ inputs.aws_aurora_snapshot_overwrite }}
+        AWS_AURORA_DB_INSTANCES_COUNT: ${{ inputs.aws_aurora_db_instances_count }}
+        AWS_AURORA_DB_INSTANCE_CLASS: ${{ inputs.aws_aurora_db_instance_class }}
+        AWS_AURORA_DB_APPLY_IMMEDIATELY: ${{ inputs.aws_aurora_db_apply_immediately }}
+        AWS_AURORA_DB_CA_CERT_IDENTIFIER: ${{ inputs.aws_aurora_db_ca_cert_identifier }}
+        AWS_AURORA_DB_MAINTENANCE_WINDOW: ${{ inputs.aws_aurora_db_maintenance_window }}
+        AWS_AURORA_PERFORMANCE_INSIGHTS_ENABLE: ${{ inputs.aws_aurora_performance_insights_enable }}
+        AWS_AURORA_PERFORMANCE_INSIGHTS_KMS_KEY_ID: ${{ inputs.aws_aurora_performance_insights_kms_key_id }}
+        AWS_AURORA_PERFORMANCE_INSIGHTS_RETENTION: ${{ inputs.aws_aurora_performance_insights_retention }}
+        AWS_AURORA_ADDITIONAL_TAGS: ${{ inputs.aws_aurora_additional_tags }}
+        # AWS DB PROXY
+        AWS_DB_PROXY_ENABLE: ${{ inputs.aws_db_proxy_enable }}
+        AWS_DB_PROXY_NAME: ${{ inputs.aws_db_proxy_name }}
+        AWS_DB_PROXY_DATABASE_ID: ${{ inputs.aws_db_proxy_database_id }}
+        AWS_DB_PROXY_CLUSTER: ${{ inputs.aws_db_proxy_cluster }}
+        AWS_DB_PROXY_SECRET_NAME: ${{ inputs.aws_db_proxy_secret_name }}
+        AWS_DB_PROXY_CLIENT_PASSWORD_AUTH_TYPE: ${{ inputs.aws_db_proxy_client_password_auth_type }}
+        AWS_DB_PROXY_TLS: ${{ inputs.aws_db_proxy_tls }}
+        AWS_DB_PROXY_SECURITY_GROUP_NAME: ${{ inputs.aws_db_proxy_security_group_name }}
+        AWS_DB_PROXY_DATABASE_SECURITY_GROUP_ALLOW: ${{ inputs.aws_db_proxy_database_security_group_allow }}
+        AWS_DB_PROXY_ALLOWED_SECURITY_GROUP: ${{ inputs.aws_db_proxy_allowed_security_group }}
+        AWS_DB_PROXY_ALLOW_ALL_INCOMING: ${{ inputs.aws_db_proxy_allow_all_incoming }}
+        AWS_DB_PROXY_CLOUDWATCH_ENABLE: ${{ inputs.aws_db_proxy_cloudwatch_enable }}
+        AWS_DB_PROXY_CLOUDWATCH_RETENTION_DAYS: ${{ inputs.aws_db_proxy_cloudwatch_retention_days }}
+        AWS_DB_PROXY_ADDITIONAL_TAGS: ${{ inputs.aws_db_proxy_additional_tags }}
+        # AWS REDIS
+        AWS_REDIS_ENABLE: ${{ inputs.aws_redis_enable }}
+        AWS_REDIS_USER: ${{ inputs.aws_redis_user }}
+        AWS_REDIS_USER_ACCESS_STRING: ${{ inputs.aws_redis_user_access_string }}
+        AWS_REDIS_USER_GROUP_NAME: ${{ inputs.aws_redis_user_group_name }}
+        AWS_REDIS_SECURITY_GROUP_NAME: ${{ inputs.aws_redis_security_group_name }}
+        AWS_REDIS_INGRESS_ALLOW_ALL: ${{ inputs.aws_redis_ingress_allow_all }}
+        AWS_REDIS_ALLOWED_SECURITY_GROUPS: ${{ inputs.aws_redis_allowed_security_groups }}
+        AWS_REDIS_SUBNETS: ${{ inputs.aws_redis_subnets }}
+        AWS_REDIS_PORT: ${{ inputs.aws_redis_port }}
+        AWS_REDIS_AT_REST_ENCRYPTION: ${{ inputs.aws_redis_at_rest_encryption }}
+        AWS_REDIS_IN_TRANSIT_ENCRYPTION: ${{ inputs.aws_redis_in_transit_encryption }}
+        AWS_REDIS_REPLICATION_GROUP_ID: ${{ inputs.aws_redis_replication_group_id }}
+        AWS_REDIS_NODE_TYPE: ${{ inputs.aws_redis_node_type }}
+        AWS_REDIS_NUM_CACHE_CLUSTER: ${{ inputs.aws_redis_num_cache_clusters }}
+        AWS_REDIS_PARAMETER_GROUP_NAME: ${{ inputs.aws_redis_parameter_group_name }}
+        AWS_REDIS_NUM_NODE_GROUPS: ${{ inputs.aws_redis_num_node_groups }}
+        AWS_REDIS_REPLICAS_PER_NODE_GROUP: ${{ inputs.aws_redis_replicas_per_node_group }}
+        AWS_REDIS_MULTI_AZ_ENABLED: ${{ inputs.aws_redis_multi_az_enabled }}
+        AWS_REDIS_AUTOMATIC_FAILOVER: ${{ inputs.aws_redis_automatic_failover }}
+        AWS_REDIS_APPLY_IMMEDIATELY: ${{ inputs.aws_redis_apply_immediately }}
+        AWS_REDIS_AUTO_MINOR_UPGRADE: ${{ inputs.aws_redis_auto_minor_upgrade }}
+        AWS_REDIS_MAINTENANCE_WINDOW: ${{ inputs.aws_redis_maintenance_window }}
+        AWS_REDIS_SNAPSHOT_WINDOW: ${{ inputs.aws_redis_snapshot_window }}
+        AWS_REDIS_FINAL_SNAPSHOT: ${{ inputs.aws_redis_final_snapshot }}
+        AWS_REDIS_SNAPSHOT_RESTORE_NAME: ${{ inputs.aws_redis_snapshot_restore_name }}
+        AWS_REDIS_CLOUDWATCH_ENABLED: ${{ inputs.aws_redis_cloudwatch_enabled }}
+        AWS_REDIS_CLOUDWATCH_LG_NAME: ${{ inputs.aws_redis_cloudwatch_lg_name }}
+        AWS_REDIS_CLOUDWATCH_LOG_FORMAT: ${{ inputs.aws_redis_cloudwatch_log_format }}
+        AWS_REDIS_CLOUDWATCH_LOG_TYPE: ${{ inputs.aws_redis_cloudwatch_log_type }}
+        AWS_REDIS_CLOUDWATCH_RETENTION_DAYS: ${{ inputs.aws_redis_cloudwatch_retention_days }}
+        AWS_REDIS_SINGLE_LINE_URL_SECRET: ${{ inputs.aws_redis_single_line_url_secret }}
+        AWS_REDIS_ADDITIONAL_TAGS: ${{ inputs.aws_redis_additional_tags }}
+        # Docker
+        DOCKER_INSTALL: ${{ inputs.docker_install }}
+        DOCKER_REMOVE_ORPHANS: ${{ inputs.docker_remove_orphans }}
+        DOCKER_FULL_CLEANUP: ${{ inputs.docker_full_cleanup }}
+        DOCKER_REPO_APP_DIRECTORY: ${{ inputs.docker_repo_app_directory }}
+        DOCKER_REPO_APP_DIRECTORY_CLEANUP: ${{ inputs.docker_repo_app_directory_cleanup }}
+        DOCKER_BACKUP_RETENTION: ${{ inputs.docker_backup_retention }}
+        DOCKER_EFS_MOUNT_TARGET: ${{ inputs.docker_efs_mount_target }}
+        DOCKER_CLOUDWATCH_ENABLE: ${{ inputs.docker_cloudwatch_enable }}
+        DOCKER_CLOUDWATCH_LG_NAME: ${{ inputs.docker_cloudwatch_lg_name }}
+        DOCKER_CLOUDWATCH_SKIP_DESTROY: ${{ inputs.docker_cloudwatch_skip_destroy }}
+        DOCKER_CLOUDWATCH_RETENTION_DAYS: ${{ inputs.docker_cloudwatch_retention_days }}
+        # ECS
+        AWS_ECS_ENABLE: ${{ inputs.aws_ecs_enable }}
+        AWS_ECS_SERVICE_NAME: ${{ inputs.aws_ecs_service_name }}
+        AWS_ECS_CLUSTER_NAME: ${{ inputs.aws_ecs_cluster_name }}
+        AWS_ECS_SERVICE_LAUNCH_TYPE: ${{ inputs.aws_ecs_service_launch_type }}
+        AWS_ECS_TASK_TYPE: ${{ inputs.aws_ecs_task_type }}
+        AWS_ECS_TASK_NAME: ${{ inputs.aws_ecs_task_name }}
+        AWS_ECS_TASK_IGNORE_DEFINITION: ${{ inputs.aws_ecs_task_ignore_definition }}
+        AWS_ECS_TASK_EXECUTION_ROLE: ${{ inputs.aws_ecs_task_execution_role }}
+        AWS_ECS_TASK_JSON_DEFINITION_FILE: ${{ inputs.aws_ecs_task_json_definition_file }}
+        AWS_ECS_TASK_NETWORK_MODE: ${{ inputs.aws_ecs_task_network_mode }}
+        AWS_ECS_TASK_CPU: ${{ inputs.aws_ecs_task_cpu }}
+        AWS_ECS_TASK_MEM: ${{ inputs.aws_ecs_task_mem }}
+        AWS_ECS_CONTAINER_CPU: ${{ inputs.aws_ecs_container_cpu }}
+        AWS_ECS_CONTAINER_MEM: ${{ inputs.aws_ecs_container_mem }}
+        AWS_ECS_NODE_COUNT: ${{ inputs.aws_ecs_node_count }}
+        AWS_ECS_APP_IMAGE: ${{ inputs.aws_ecs_app_image }}
+        AWS_ECS_SECURITY_GROUP_NAME: ${{ inputs.aws_ecs_security_group_name }}
+        AWS_ECS_ASSIGN_PUBLIC_IP: ${{ inputs.aws_ecs_assign_public_ip }}
+        AWS_ECS_CONTAINER_PORT: ${{ inputs.aws_ecs_container_port }}
+        AWS_ECS_LB_PORT: ${{ inputs.aws_ecs_lb_port }}
+        AWS_ECS_LB_REDIRECT_ENABLE: ${{ inputs.aws_ecs_lb_redirect_enable }}
+        AWS_ECS_LB_CONTAINER_PATH: ${{ inputs.aws_ecs_lb_container_path }}
+        AWS_ECS_LB_SSL_POLICY: ${{ inputs.aws_ecs_lb_ssl_policy }}
+        AWS_ECS_LB_WWW_TO_APEX_REDIRECT: ${{ inputs.aws_ecs_lb_www_to_apex_redirect }}
+        AWS_ECS_AUTOSCALING_ENABLE: ${{ inputs.aws_ecs_autoscaling_enable }}
+        AWS_ECS_AUTOSCALING_MAX_NODES: ${{ inputs.aws_ecs_autoscaling_max_nodes }}
+        AWS_ECS_AUTOSCALING_MIN_NODES: ${{ inputs.aws_ecs_autoscaling_min_nodes }}
+        AWS_ECS_AUTOSCALING_MAX_MEM: ${{ inputs.aws_ecs_autoscaling_max_mem }}
+        AWS_ECS_AUTOSCALING_MAX_CPU: ${{ inputs.aws_ecs_autoscaling_max_cpu }}
+        AWS_ECS_CLOUDWATCH_ENABLE: ${{ inputs.aws_ecs_cloudwatch_enable }}
+        AWS_ECS_CLOUDWATCH_LG_NAME: ${{ inputs.aws_ecs_cloudwatch_lg_name }}
+        AWS_ECS_CLOUDWATCH_SKIP_DESTROY: ${{ inputs.aws_ecs_cloudwatch_skip_destroy }}
+        AWS_ECS_CLOUDWATCH_RETENTION_DAYS: ${{ inputs.aws_ecs_cloudwatch_retention_days }}
+        AWS_ECS_ADDITIONAL_TAGS: ${{ inputs.aws_ecs_additional_tags }}
+        # ECR
+        AWS_ECR_REPO_CREATE: ${{ inputs.aws_ecr_repo_create }}
+        AWS_ECR_REPO_TYPE: ${{ inputs.aws_ecr_repo_type }}
+        AWS_ECR_REPO_NAME: ${{ inputs.aws_ecr_repo_name }}
+        AWS_ECR_REPO_MUTABLE: ${{ inputs.aws_ecr_repo_mutable }}
+        AWS_ECR_REPO_ENCRYPTION_TYPE: ${{ inputs.aws_ecr_repo_encryption_type }}
+        AWS_ECR_REPO_ENCRYPTION_KEY_ARN: ${{ inputs.aws_ecr_repo_encryption_key_arn }}
+        AWS_ECR_REPO_FORCE_DESTROY: ${{ inputs.aws_ecr_repo_force_destroy }}
+        AWS_ECR_REPO_IMAGE_SCAN: ${{ inputs.aws_ecr_repo_image_scan }}
+        AWS_ECR_REGISTRY_SCAN_RULE: ${{ inputs.aws_ecr_registry_scan_rule }}
+        AWS_ECR_REGISTRY_PULL_THROUGH_CACHE_RULES: ${{ inputs.aws_ecr_registry_pull_through_cache_rules }}
+        AWS_ECR_REGISTRY_SCAN_CONFIG: ${{ inputs.aws_ecr_registry_scan_config }}
+        AWS_ECR_REGISTRY_REPLICATION_RULES_INPUT: ${{ inputs.aws_ecr_registry_replication_rules_input }}
+        AWS_ECR_REPO_POLICY_ATTACH: ${{ inputs.aws_ecr_repo_policy_attach }}
+        AWS_ECR_REPO_POLICY_CREATE: ${{ inputs.aws_ecr_repo_policy_create }}
+        AWS_ECR_REPO_POLICY_INPUT: ${{ inputs.aws_ecr_repo_policy_input }}
+        AWS_ECR_REPO_READ_ARN: ${{ inputs.aws_ecr_repo_read_arn }}
+        AWS_ECR_REPO_WRITE_ARN: ${{ inputs.aws_ecr_repo_write_arn }}
+        AWS_ECR_REPO_READ_EXTERNAL_AWS_ACCOUNT: ${{ inputs.aws_ecr_repo_read_external_aws_account }}
+        AWS_ECR_REPO_WRITE_EXTERNAL_AWS_ACCOUNT: ${{ inputs.aws_ecr_repo_write_external_aws_account }}
+        AWS_ECR_REPO_READ_ARN_LAMBDA: ${{ inputs.aws_ecr_repo_read_arn_lambda }}
+        AWS_ECR_LIFECYCLE_POLICY_INPUT: ${{ inputs.aws_ecr_lifecycle_policy_input }}
+        AWS_ECR_PUBLIC_REPO_CATALOG: ${{ inputs.aws_ecr_public_repo_catalog }}
+        AWS_ECR_REGISTRY_POLICY_INPUT: ${{ inputs.aws_ecr_registry_policy_input }}
+        AWS_ECR_ADDITIONAL_TAGS: ${{ inputs.aws_ecr_additional_tags }}
+        # AWS EKS
+        AWS_EKS_CREATE: ${{ inputs.aws_eks_create }}
+        AWS_EKS_SECURITY_GROUP_NAME_CLUSTER: ${{ inputs.aws_eks_security_group_name_cluster }}
+        AWS_EKS_SECURITY_GROUP_NAME_NODE: ${{ inputs.aws_eks_security_group_name_node }}
+        AWS_EKS_ENVIRONMENT: ${{ inputs.aws_eks_environment }}
+        AWS_EKS_MANAGEMENT_CIDR: ${{ inputs.aws_eks_management_cidr }}
+        AWS_EKS_ALLOWED_PORTS: ${{ inputs.aws_eks_allowed_ports }}
+        AWS_EKS_ALLOWED_PORTS_CIDR: ${{ inputs.aws_eks_allowed_ports_cidr }}
+        AWS_EKS_CLUSTER_NAME: ${{ inputs.aws_eks_cluster_name }}
+        AWS_EKS_CLUSTER_ADMIN_ROLE_ARN: ${{ inputs.aws_eks_cluster_admin_role_arn }}
+        AWS_EKS_CLUSTER_LOG_TYPES: ${{ inputs.aws_eks_cluster_log_types }}
+        AWS_EKS_CLUSTER_LOG_RETENTION_DAYS: ${{ inputs.aws_eks_cluster_log_retention_days }}
+        AWS_EKS_CLUSTER_LOG_SKIP_DESTROY: ${{ inputs.aws_eks_cluster_log_skip_destroy }}
+        AWS_EKS_CLUSTER_VERSION: ${{ inputs.aws_eks_cluster_version }}
+        AWS_EKS_INSTANCE_TYPE: ${{ inputs.aws_eks_instance_type }}
+        AWS_EKS_INSTANCE_AMI_ID: ${{ inputs.aws_eks_instance_ami_id }}
+        AWS_EKS_INSTANCE_USER_DATA_FILE: ${{ inputs.aws_eks_instance_user_data_file }}
+        AWS_EKS_EC2_KEY_PAIR: ${{ inputs.aws_eks_ec2_key_pair }}
+        AWS_EKS_STORE_KEYPAIR_SM: ${{ inputs.aws_eks_store_keypair_sm }}
+        AWS_EKS_DESIRED_CAPACITY: ${{ inputs.aws_eks_desired_capacity}}
+        AWS_EKS_MAX_SIZE: ${{ inputs.aws_eks_max_size }}
+        AWS_EKS_MIN_SIZE: ${{ inputs.aws_eks_min_size }}
+        AWS_EKS_ADDITIONAL_TAGS: ${{ inputs.aws_eks_additional_tags }}
+      run: |
+        echo "Running operations/_scripts/deploy/deploy.sh"
+        $GITHUB_ACTION_PATH/operations/_scripts/deploy/deploy.sh
+        echo "Running operations/_scripts/deploy/export_vars.sh"
+        $GITHUB_ACTION_PATH/operations/_scripts/deploy/export_vars.sh
+        echo "Finished executions - Now to print results"
+    # always output results to GitHub Summary UI
+    - name: Generate Summary Output
+      if: ${{ always() }}
+      shell: bash
+      env:
+        SUCCESS: ${{ job.status }} # success, failure, cancelled
+        VPC_CREATE: ${{ inputs.aws_vpc_create }}
+        VPC_ID: ${{ steps.deploy.outputs.aws_vpc_id }}
+        URL_OUTPUT: ${{ steps.deploy.outputs.vm_url }}
+        EC2_URL_OUTPUT: ${{ steps.deploy.outputs.instance_endpoint }}
+        BITOPS_CODE_ONLY: ${{ inputs.bitops_code_only }}
+        BITOPS_CODE_STORE: ${{ inputs.bitops_code_store }}
+        TF_STACK_DESTROY: ${{ inputs.tf_stack_destroy }}
+        TF_STATE_BUCKET_DESTROY: ${{ inputs.tf_state_bucket_destroy }}
+        AWS_EC2_PORT_LIST: ${{ inputs.aws_ec2_port_list }}
+        AWS_ELB_LISTEN_PORT: ${{ inputs.aws_elb_listen_port }}
+        RDS_ENDPOINT: ${{ steps.deploy.outputs.db_endpoint }}
+        RDS_SECRETS_NAME: ${{ steps.deploy.outputs.db_secret_details_name }}
+        RDS_PROXY: ${{ steps.deploy.outputs.db_proxy_rds_endpoint }}
+        RDS_PROXY_SECRET: ${{ steps.deploy.outputs.db_proxy_secret_name_rds }}
+        AURORA_ENDPOINT: ${{ steps.deploy.outputs.aurora_db_endpoint }}
+        AURORA_SECRETS_NAME: ${{ steps.deploy.outputs.aurora_db_secret_details_name }}
+        AURORA_PROXY: ${{ steps.deploy.outputs.aurora_proxy_endpoint }}
+        AURORA_PROXY_SECRET: ${{ steps.deploy.outputs.aurora_proxy_secret_name }}
+        DB_PROXY: ${{ steps.deploy.outputs.db_proxy_endpoint }}
+        DB_PROXY_SECRET: ${{ steps.deploy.outputs.db_proxy_secret_name }}
+        ECS_ALB_DNS: ${{ steps.deploy.outputs.ecs_load_balancer_dns }}
+        ECS_DNS: ${{ steps.deploy.outputs.ecs_dns_record }}
+        ECR_REPO_ARN: ${{ steps.deploy.outputs.ecr_repository_arn }}
+        ECR_REPO_URL: ${{ steps.deploy.outputs.ecr_repository_url }}
+        REDIS_ENDPOINT: ${{ steps.deploy.outputs.redis_endpoint }}
+        REDIS_SECRET_NAME: ${{ steps.deploy.outputs.redis_secret_name }}
+        REDIS_SECRET_URL: ${{ steps.deploy.outputs.redis_connection_string_secret }}
+        EFS_FS_ID: ${{ steps.deploy.outputs.aws_efs_fs_id }}
+        EFS_REPLICA_FS_ID: ${{ steps.deploy.outputs.aws_efs_replica_fs_id }}
+        EFS_SG_ID: ${{ steps.deploy.outputs.aws_efs_sg_id }}
+        EKS_CLUSTER_NAME: ${{ steps.deploy.outputs.eks_cluster_name }}
+        EKS_CLUSTER_ROLE_ARN: ${{ steps.deploy.outputs.eks_cluster_role_arn }}
+      run: $GITHUB_ACTION_PATH/operations/_scripts/deploy/summary.sh
+    # upload generated artifacts to GitHub if enabled
+    - if: ${{ inputs.bitops_code_store == 'true' }}
+      name: Archive production artifacts
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: Storing code - Terraform
+        retention-days: 5
+        path: |-
+          ${{ github.action_path }}/operations/deployment
+          !${{ github.action_path }}/operations/deployment/**/ghs.env

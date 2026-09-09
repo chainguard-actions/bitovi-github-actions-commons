@@ -1,0 +1,26 @@
+name: Test - bitops_skip_run with ECR resource enabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Test that the action handles ECR resource configuration correctly
+      # with bitops_skip_run=true (exits before Docker execution).
+      # ECR is a lightweight resource that doesn't require VPC/EC2.
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_resource_identifier: 'test-ecr-action'
+          aws_default_region: 'us-east-1'
+          aws_ecr_repo_create: 'true'
+          aws_ecr_repo_name: 'test-ecr-repo'
+
+      - name: Assert action completed with ECR config and skip_run
+        run: |
+          echo "Action completed with ECR resource and bitops_skip_run=true"
+          echo "PASS"

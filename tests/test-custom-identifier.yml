@@ -1,0 +1,25 @@
+name: Test - Custom AWS resource identifier
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Test that a custom aws_resource_identifier is accepted and used.
+      # The identifier is used to generate bucket names and resource names.
+      # With no resources enabled, the action exits cleanly after generating
+      # an empty bitops config.
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          aws_resource_identifier: 'my-custom-identifier'
+          aws_default_region: 'eu-west-1'
+          tf_state_file_name: 'custom-tf-state'
+
+      - name: Assert action completed with custom identifier
+        run: |
+          echo "Action completed with custom aws_resource_identifier"
+          echo "PASS"

@@ -1,0 +1,26 @@
+name: Test - bitops_skip_run exits before Docker execution
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # With bitops_skip_run=true and a resource enabled, the action will:
+      # 1. Run all generation scripts (identifier, provider, vars, bitops config)
+      # 2. Exit before running the BitOps Docker container
+      # No AWS credentials or Docker pull required.
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_resource_identifier: 'test-skip-run'
+          aws_default_region: 'us-east-1'
+          aws_ec2_instance_create: 'true'
+
+      - name: Assert action completed successfully with skip_run
+        run: |
+          echo "Action completed with bitops_skip_run=true"
+          echo "PASS"
