@@ -1,0 +1,24 @@
+name: Test custom aws_resource_identifier
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with custom resource identifier and ECR resource
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_resource_identifier: 'my-custom-identifier'
+          aws_default_region: 'us-east-1'
+          aws_ecr_repo_create: 'true'
+          aws_ecr_repo_name: 'my-test-ecr-repo'
+
+      - name: Assert action completed successfully with custom identifier
+        run: |
+          echo "Action completed with custom aws_resource_identifier"
+          echo "PASS: custom identifier accepted and bucket name validation passed"

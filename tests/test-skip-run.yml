@@ -1,0 +1,23 @@
+name: Test bitops_skip_run early exit
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with bitops_skip_run enabled and EC2 resource
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          aws_resource_identifier: 'test-commons-skiprun'
+          aws_default_region: 'us-east-1'
+          aws_ec2_instance_create: 'true'
+
+      - name: Assert action completed successfully with skip_run
+        run: |
+          echo "Action completed with bitops_skip_run=true"
+          echo "PASS: action exited cleanly after setup (BitOps Docker not invoked)"

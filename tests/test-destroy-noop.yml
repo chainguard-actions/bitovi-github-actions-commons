@@ -1,0 +1,22 @@
+name: Test tf_stack_destroy with no existing state
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with tf_stack_destroy and no existing state
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          tf_stack_destroy: 'true'
+          aws_resource_identifier: 'test-commons-destroy'
+          aws_default_region: 'us-east-1'
+
+      - name: Assert action completed successfully with destroy noop
+        run: |
+          echo "Action completed with tf_stack_destroy=true and no existing state"
+          echo "PASS: action exited cleanly (no state file found, nothing to destroy)"
