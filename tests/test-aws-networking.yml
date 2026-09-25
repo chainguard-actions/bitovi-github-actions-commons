@@ -1,0 +1,85 @@
+name: Test AWS networking inputs (R53, ELB, ALB, WAF)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          # Route53
+          aws_r53_enable: 'false'
+          aws_r53_domain_name: 'example.com'
+          aws_r53_sub_domain_name: 'test'
+          aws_r53_root_domain_deploy: 'false'
+          aws_r53_enable_cert: 'false'
+          aws_r53_cert_arn: ''
+          aws_r53_create_root_cert: 'false'
+          aws_r53_create_sub_cert: 'false'
+          aws_r53_additional_tags: '{"component":"r53"}'
+          # ELB
+          aws_elb_create: 'false'
+          aws_elb_security_group_name: 'test-elb-sg'
+          aws_elb_app_port: '8080'
+          aws_elb_app_protocol: 'TCP'
+          aws_elb_listen_port: '80'
+          aws_elb_listen_protocol: 'TCP'
+          aws_elb_healthcheck: 'TCP:22'
+          aws_elb_access_log_bucket_name: ''
+          aws_elb_access_log_expire: '90'
+          aws_elb_additional_tags: '{"component":"elb"}'
+          # ALB
+          aws_alb_create: 'false'
+          aws_alb_security_group_name: 'test-alb-sg'
+          aws_alb_app_port: '8080'
+          aws_alb_app_protocol: 'HTTP'
+          aws_alb_listen_port: '80'
+          aws_alb_listen_protocol: 'HTTP'
+          aws_alb_redirect_enable: 'false'
+          aws_alb_www_to_apex_redirect: 'false'
+          aws_alb_healthcheck_path: '/health'
+          aws_alb_healthcheck_protocol: 'HTTP'
+          aws_alb_ssl_policy: ''
+          aws_alb_access_log_enabled: 'false'
+          aws_alb_access_log_bucket_name: ''
+          aws_alb_access_log_expire: '90'
+          aws_alb_additional_tags: '{"component":"alb"}'
+          # WAF
+          aws_waf_enable: 'false'
+          aws_waf_logging_enable: 'false'
+          aws_waf_log_retention_days: '7'
+          aws_waf_rule_rate_limit: '1000'
+          aws_waf_rule_rate_limit_priority: '1'
+          aws_waf_rule_managed_rules: 'false'
+          aws_waf_rule_managed_rules_priority: '2'
+          aws_waf_rule_managed_bad_inputs: 'false'
+          aws_waf_rule_managed_bad_inputs_priority: '3'
+          aws_waf_rule_ip_reputation: 'false'
+          aws_waf_rule_ip_reputation_priority: '4'
+          aws_waf_rule_anonymous_ip: 'false'
+          aws_waf_rule_anonymous_ip_priority: '5'
+          aws_waf_rule_bot_control: 'false'
+          aws_waf_rule_bot_control_priority: '6'
+          aws_waf_rule_geo_block_countries: ''
+          aws_waf_rule_geo_block_countries_priority: '7'
+          aws_waf_rule_geo_allow_only_countries: ''
+          aws_waf_rule_geo_allow_only_countries_priority: '8'
+          aws_waf_rule_sqli: 'false'
+          aws_waf_rule_sqli_priority: '9'
+          aws_waf_rule_linux: 'false'
+          aws_waf_rule_linux_priority: '10'
+          aws_waf_rule_unix: 'false'
+          aws_waf_rule_unix_priority: '11'
+          aws_waf_rule_admin_protection: 'false'
+          aws_waf_rule_admin_protection_priority: '12'
+          aws_waf_rule_user_arn: ''
+          aws_waf_rule_user_arn_priority: '13'
+          aws_waf_additional_tags: '{"component":"waf"}'
+      - name: Assert action ran
+        run: |
+          echo "Action completed with bitops_skip_run=true"
+          echo "PASS"

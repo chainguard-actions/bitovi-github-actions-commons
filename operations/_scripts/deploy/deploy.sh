@@ -60,11 +60,10 @@ fi
 /bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_bitops_incoming.sh
 
 # Generate bitops incoming repos config
-BITOPS_EXTRA_ENV_VARS_FILE_ARGS=()
 if [ -n "$GH_ACTION_REPO" ] && [ -n "$BITOPS_EXTRA_ENV_VARS_FILE" ]; then
-  if [ -s "$GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE" ]; then
-    cat "$GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE"
-    BITOPS_EXTRA_ENV_VARS_FILE_ARGS=(--env-file "$GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE")
+  if [ -s $GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE ]; then
+    cat $GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE
+    BITOPS_EXTRA_ENV_VARS_FILE="--env-file $GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE"
   else
     echo "File $BITOPS_EXTRA_ENV_VARS_FILE missing or empty"
   fi
@@ -97,9 +96,8 @@ if [ -s "$GITHUB_WORKSPACE/$ENV_REPO" ] && [ -n "$ENV_REPO" ]; then
 fi
 
 # Bypass all the 'BITOPS_' ENV vars to docker
-BITOPS_EXTRA_ENV_VARS_ARGS=()
 for i in $(env | grep BITOPS_); do
-  BITOPS_EXTRA_ENV_VARS_ARGS+=(-e "${i}")
+  BITOPS_EXTRA_ENV_VARS="${BITOPS_EXTRA_ENV_VARS} -e ${i}"
 done
 
 if [[ $(alpha_only "$BITOPS_CODE_ONLY") == "true" ]]; then
@@ -123,9 +121,9 @@ docker run --rm --name bitops \
 -e TF_STATE_BUCKET="${TF_STATE_BUCKET}" \
 -e TF_STATE_BUCKET_DESTROY="${TF_STATE_BUCKET_DESTROY}" \
 -e DEFAULT_FOLDER_NAME="_default" \
-"${BITOPS_EXTRA_ENV_VARS_FILE_ARGS[@]}" \
-"${BITOPS_EXTRA_ENV_VARS_ARGS[@]}" \
--v "$(echo $GITHUB_ACTION_PATH)/operations":/opt/bitops_deployment \
+${BITOPS_EXTRA_ENV_VARS_FILE} \
+${BITOPS_EXTRA_ENV_VARS} \
+-v $(echo $GITHUB_ACTION_PATH)/operations:/opt/bitops_deployment \
 bitovi/bitops:2.6.0
 BITOPS_RESULT=$?
 echo "::endgroup::"

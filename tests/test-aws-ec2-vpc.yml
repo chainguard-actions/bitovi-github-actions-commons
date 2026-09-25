@@ -1,0 +1,56 @@
+name: Test AWS EC2 and VPC inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          # AWS credentials
+          aws_access_key_id: 'AKIAIOSFODNN7EXAMPLE'
+          aws_secret_access_key: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+          aws_session_token: 'AQoDYXdzEJr'
+          aws_additional_tags: '{"env":"test"}'
+          # EC2
+          aws_ec2_instance_create: 'false'
+          aws_ec2_ami_filter: 'ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*'
+          aws_ec2_ami_owner: '099720109477'
+          aws_ec2_ami_id: ''
+          aws_ec2_ami_update: 'false'
+          aws_ec2_iam_instance_profile: ''
+          aws_ec2_instance_type: 't3.micro'
+          aws_ec2_instance_root_vol_size: '20'
+          aws_ec2_instance_root_vol_preserve: 'false'
+          aws_ec2_security_group_name: 'test-ec2-sg'
+          aws_ec2_create_keypair_sm: 'false'
+          aws_ec2_instance_public_ip: 'true'
+          aws_ec2_port_list: '[80,443]'
+          aws_ec2_user_data_file: ''
+          aws_ec2_user_data_replace_on_change: 'true'
+          aws_ec2_additional_tags: '{"component":"ec2"}'
+          # VPC
+          aws_vpc_create: 'false'
+          aws_vpc_name: 'test-vpc'
+          aws_vpc_cidr_block: '10.0.0.0/16'
+          aws_vpc_public_subnets: '10.10.110.0/24'
+          aws_vpc_private_subnets: ''
+          aws_vpc_availability_zones: 'us-east-1a'
+          aws_vpc_id: ''
+          aws_vpc_subnet_id: ''
+          aws_vpc_enable_nat_gateway: 'false'
+          aws_vpc_single_nat_gateway: 'false'
+          aws_vpc_external_nat_ip_ids: ''
+          aws_vpc_additional_tags: '{"component":"vpc"}'
+          # Ansible
+          ansible_skip: 'true'
+          ansible_ssh_to_private_ip: 'false'
+          ansible_start_docker_timeout: '300'
+      - name: Assert action ran
+        run: |
+          echo "Action completed with bitops_skip_run=true"
+          echo "PASS"
