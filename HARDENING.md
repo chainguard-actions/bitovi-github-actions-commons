@@ -16,44 +16,28 @@ Action **bitovi--github-actions-commons/v2.0.9** was hardened automatically. 2 f
 
 ### unpinned-uses (severity: high)
 
-Multiple `uses:` references are pinned to mutable tags instead of full 40-character commit SHAs, making the action vulnerable to supply-chain attacks if the tag is moved.
-
-**action.yaml:**
-- `actions/checkout@v4` (line ~57397)
-- `actions/upload-artifact@v4` (line ~89727)
-
-**ci.yml:**
-- `actions/checkout@v5`
-- `hashicorp/setup-terraform@v3`
-- `actions/github-script@v7`
-
-**unit_tests.yaml:**
-- `mig4/setup-bats@v1`
-- `actions/checkout@v2`
-
-All of these should be pinned to a full SHA digest, e.g. `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4`.
+action.yaml references two GitHub Actions using mutable tag refs instead of full 40-character SHA digests. `actions/checkout@v4` and `actions/upload-artifact@v4` are both pinned to version tags, which can be silently redirected to different (potentially malicious) commits if the upstream repository is compromised. They must be pinned to their full commit SHA (e.g., `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4`).
 
 Locations:
 
 - `action.yaml:1`
-- `.github/workflows/ci.yml:10`
-- `.github/workflows/unit_tests.yaml:13`
+- `action.yaml:1`
 
-### missing-permissions (severity: medium)
+### github-env-injection (severity: high)
 
-The workflow file `ci.yml` has no top-level `permissions:` key and its only job (`terraform-validation`) also has no job-level `permissions:` key. Without explicit permissions, the job inherits the default repository token permissions, which may be overly broad (write access to contents, pull-requests, etc.). A minimal permissions block such as `permissions: contents: read` should be added.
+In `operations/_scripts/deploy/export_vars.sh` (invoked from the `run:` block of the 'Deploy with BitOps' step in action.yaml), the entire contents of `bo-out.env` are written directly to `$GITHUB_OUTPUT` via `cat $BO_OUT >> $GITHUB_OUTPUT` without newline sanitization. The `bo-out.env` file is generated from `terraform output` and can contain values derived from user-controlled inputs (e.g., branch names, resource identifiers, tag values). A value containing embedded newlines could inject additional `key=value` pairs into `$GITHUB_OUTPUT`, allowing an attacker to overwrite outputs consumed by downstream steps. The fix requires sanitizing each value with `printf '%s' "$value" | tr -d '\n\r'` before writing to the special environment file.
 
 Locations:
 
-- `.github/workflows/ci.yml:1`
+- `operations/_scripts/deploy/export_vars.sh:10`
 
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** unpinned-uses, missing-permissions
+**Fixes applied:** unpinned-uses, github-env-injection
 
 **Notes:**
 
-Pinned all unpinned `uses:` references to full commit SHAs: actions/checkout@v4 → 11d5960a..., actions/upload-artifact@v4 → ea165f8d... (action.yaml); actions/checkout@v5 → fbc6f399..., hashicorp/setup-terraform@v3 → b9cd54a3..., actions/github-script@v7 → f28e40c7... (ci.yml); mig4/setup-bats@v1 → af9a00de..., actions/checkout@v2 → 0717577d... (unit_tests.yaml). Added top-level `permissions: contents: read` to ci.yml to fix the missing-permissions finding.
+1. Pinned `actions/checkout@v4` to `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4` in action.yaml. 2. Pinned `actions/upload-artifact@v4` to `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4` in action.yaml. 3. Fixed `operations/_scripts/deploy/export_vars.sh`: replaced the unsafe `cat $BO_OUT >> $GITHUB_OUTPUT` with a loop that reads each line, splits key from value on the first '=', sanitizes the value with `printf '%s' "$value" | tr -d '\n\r'`, and writes the sanitized pair to $GITHUB_OUTPUT — preventing newline injection from terraform output values.
 
