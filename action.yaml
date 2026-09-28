@@ -1087,7 +1087,7 @@ runs:
           "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
     - name: Checkout if required
       if: ${{ inputs.checkout == 'true' }}
-      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      uses: chainguard-actions/actions-checkout@59b7218bfc2eaabc464f1254f6e1dac5bda91d94 # v4
     - name: Deploy with BitOps
       id: deploy
       shell: bash
@@ -1421,9 +1421,9 @@ runs:
         AWS_EKS_ADDITIONAL_TAGS: ${{ inputs.aws_eks_additional_tags }}
       run: |
         echo "Running operations/_scripts/deploy/deploy.sh"
-        $GITHUB_ACTION_PATH/operations/_scripts/deploy/deploy.sh
+        "$GITHUB_ACTION_PATH/operations/_scripts/deploy/deploy.sh"
         echo "Running operations/_scripts/deploy/export_vars.sh"
-        $GITHUB_ACTION_PATH/operations/_scripts/deploy/export_vars.sh
+        "$GITHUB_ACTION_PATH/operations/_scripts/deploy/export_vars.sh"
         echo "Finished executions - Now to print results"
     # always output results to GitHub Summary UI
     - name: Generate Summary Output
@@ -1463,7 +1463,7 @@ runs:
         EFS_SG_ID: ${{ steps.deploy.outputs.aws_efs_sg_id }}
         EKS_CLUSTER_NAME: ${{ steps.deploy.outputs.eks_cluster_name }}
         EKS_CLUSTER_ROLE_ARN: ${{ steps.deploy.outputs.eks_cluster_role_arn }}
-      run: $GITHUB_ACTION_PATH/operations/_scripts/deploy/summary.sh
+      run: "$GITHUB_ACTION_PATH/operations/_scripts/deploy/summary.sh"
     # upload generated artifacts to GitHub if enabled
     - if: ${{ inputs.bitops_code_store == 'true' }}
       name: Archive production artifacts

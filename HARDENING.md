@@ -10,27 +10,17 @@
 
 **Harden Agent Version:** `2`
 
-Action **bitovi--github-actions-commons/v0.0.13** was hardened automatically. 2 finding(s) were identified and resolved across 2 iteration(s).
+Action **bitovi--github-actions-commons/v0.0.13** was hardened automatically. 1 finding(s) were identified and resolved across 2 iteration(s).
 
 ## Findings Fixed
 
 ### unpinned-uses (severity: high)
 
-action.yaml references two GitHub Actions using mutable version tags instead of pinned SHA digests, making the action vulnerable to supply-chain attacks if those tags are moved. Failing references: `uses: actions/checkout@v4` and `uses: actions/upload-artifact@v3`.
+action.yaml references two GitHub Actions using mutable version tags instead of pinned 40-character SHA commit hashes. This exposes the action to supply-chain attacks if the upstream action tags are moved or compromised. Failing references: `uses: actions/checkout@v4` and `uses: actions/upload-artifact@v3`.
 
 Locations:
 
 - `action.yaml:1`
-- `action.yaml:1`
-
-### unpinned-uses (severity: high)
-
-The workflow file unit_tests.yaml references two GitHub Actions using mutable version tags instead of pinned SHA digests. Failing references: `uses: mig4/setup-bats@v1` and `uses: actions/checkout@v2`.
-
-Locations:
-
-- `.github/workflows/unit_tests.yaml:10`
-- `.github/workflows/unit_tests.yaml:13`
 
 ## Iteration Notes
 
@@ -40,20 +30,18 @@ Locations:
 
 **Notes:**
 
-Pinned all four unpinned action references to full commit SHAs:
-- hardened/action/action.yaml: `actions/checkout@v4` → `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4`
-- hardened/action/action.yaml: `actions/upload-artifact@v3` → `actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3`
-- hardened/action/.github/workflows/unit_tests.yaml: `mig4/setup-bats@v1` → `mig4/setup-bats@af9a00deb21b5d795cabfeaa8d9060410377686d # v1`
-- hardened/action/.github/workflows/unit_tests.yaml: `actions/checkout@v2` → `actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2`
+Pinned two unpinned action references in hardened/action/action.yaml:
+1. `actions/checkout@v4` → `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4`
+2. `actions/upload-artifact@v3` → `actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3`
 
-### Iteration 2
+Both SHAs were resolved via lookup_action_sha and the original version tags are preserved as inline comments for readability.
 
-**Fixes applied:** script-injection
+### Iteration 1
+
+**Fixes applied:** script-injection, github-env-injection
 
 **Notes:**
 
-Fixed three unquoted variable expansions in operations/_scripts/deploy/deploy.sh:
-1. Converted BITOPS_EXTRA_ENV_VARS_FILE from an unquoted string to a bash array (BITOPS_EXTRA_ENV_VARS_FILE_ARGS) that is safely expanded with "${BITOPS_EXTRA_ENV_VARS_FILE_ARGS[@]}" in the docker run command.
-2. Converted BITOPS_EXTRA_ENV_VARS from an unquoted string to a bash array (BITOPS_EXTRA_ENV_VARS_ARGS) built with properly quoted elements, expanded with "${BITOPS_EXTRA_ENV_VARS_ARGS[@]}" in the docker run command.
-3. Replaced the unquoted $(echo $GITHUB_ACTION_PATH) with a properly quoted "${GITHUB_ACTION_PATH}" in the -v mount argument. The script uses #!/bin/bash so bash arrays are appropriate.
+1. script-injection (action.yaml): Quoted all three unquoted $GITHUB_ACTION_PATH usages in run: blocks — two in the 'Deploy with BitOps' step (deploy.sh and export_vars.sh invocations) and one in the 'Generate Summary Output' step (summary.sh invocation). Changed from `$GITHUB_ACTION_PATH/...` to `"$GITHUB_ACTION_PATH/..."`.
+2. github-env-injection (export_vars.sh): Replaced the unsafe `cat $BO_OUT >> $GITHUB_OUTPUT` with a while-read loop that splits each line into key and value, sanitizes the value using `printf '%s' "$value" | tr -d '\n\r'`, and writes the sanitized pair to $GITHUB_OUTPUT. This prevents injection of additional output variables via embedded newlines in values derived from user-controlled inputs.
 
