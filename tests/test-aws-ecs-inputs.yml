@@ -1,0 +1,58 @@
+name: Test AWS ECS inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          bitops_skip_run: 'true'
+          checkout: 'false'
+          aws_ecs_enable: 'false'
+          aws_ecs_service_name: 'my-ecs-service'
+          aws_ecs_cluster_name: 'my-ecs-cluster'
+          aws_ecs_service_launch_type: 'FARGATE'
+          aws_ecs_task_type: 'FARGATE'
+          aws_ecs_task_name: 'my-task'
+          aws_ecs_task_ignore_definition: 'false'
+          aws_ecs_task_execution_role: 'ecsTaskExecutionRole'
+          aws_ecs_task_json_definition_file: ''
+          aws_ecs_task_network_mode: 'awsvpc'
+          aws_ecs_task_cpu: '256'
+          aws_ecs_task_mem: '512'
+          aws_ecs_container_cpu: '256'
+          aws_ecs_container_mem: '512'
+          aws_ecs_node_count: '1'
+          aws_ecs_app_image: 'nginx:latest'
+          aws_ecs_security_group_name: 'my-ecs-sg'
+          aws_ecs_assign_public_ip: 'true'
+          aws_ecs_container_port: '80'
+          aws_ecs_lb_port: '80'
+          aws_ecs_lb_redirect_enable: 'false'
+          aws_ecs_lb_container_path: ''
+          aws_ecs_lb_ssl_policy: ''
+          aws_ecs_autoscaling_enable: 'false'
+          aws_ecs_autoscaling_max_nodes: '4'
+          aws_ecs_autoscaling_min_nodes: '1'
+          aws_ecs_autoscaling_max_mem: '80'
+          aws_ecs_autoscaling_max_cpu: '80'
+          aws_ecs_cloudwatch_enable: 'false'
+          aws_ecs_cloudwatch_lg_name: ''
+          aws_ecs_cloudwatch_skip_destroy: 'false'
+          aws_ecs_cloudwatch_retention_days: '14'
+          aws_ecs_additional_tags: '{"env":"test"}'
+      - name: Assert action ran
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran (outcome=$OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

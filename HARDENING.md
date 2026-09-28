@@ -10,27 +10,17 @@
 
 **Harden Agent Version:** `2`
 
-Action **bitovi--github-actions-commons/v1** was hardened automatically. 2 finding(s) were identified and resolved across 1 iteration(s).
+Action **bitovi--github-actions-commons/v1** was hardened automatically. 1 finding(s) were identified and resolved across 2 iteration(s).
 
 ## Findings Fixed
 
 ### unpinned-uses (severity: high)
 
-action.yaml references two GitHub Actions by mutable version tags instead of full 40-character SHA digests, making the action vulnerable to supply-chain attacks if those tags are moved. Failing references: `uses: actions/checkout@v4` and `uses: actions/upload-artifact@v4`.
+Two `uses:` references in action.yaml are pinned to mutable version tags (@v4) rather than immutable 40-character commit SHA digests. This exposes the action to supply-chain attacks if the upstream tag is moved or compromised. Affected references: `actions/checkout@v4` and `actions/upload-artifact@v4`.
 
 Locations:
 
 - `action.yaml:1`
-- `action.yaml:1`
-
-### unpinned-uses (severity: high)
-
-`.github/workflows/unit_tests.yaml` references two GitHub Actions by mutable version tags instead of full 40-character SHA digests. Failing references: `uses: mig4/setup-bats@v1` and `uses: actions/checkout@v2`.
-
-Locations:
-
-- `.github/workflows/unit_tests.yaml:9`
-- `.github/workflows/unit_tests.yaml:12`
 
 ## Iteration Notes
 
@@ -40,5 +30,16 @@ Locations:
 
 **Notes:**
 
-Pinned all four unpinned action references to full 40-character SHA digests: (1) actions/checkout@v4 → @11d5960a326750d5838078e36cf38b85af677262 in action.yaml, (2) actions/upload-artifact@v4 → @ea165f8d65b6e75b540449e92b4886f43607fa02 in action.yaml, (3) mig4/setup-bats@v1 → @af9a00deb21b5d795cabfeaa8d9060410377686d in .github/workflows/unit_tests.yaml, (4) actions/checkout@v2 → @0717577d45739eb3c851188b29f50ed6c0b2194e in .github/workflows/unit_tests.yaml. Original tag names preserved as inline comments.
+Pinned two mutable action references in hardened/action/action.yaml:
+- `actions/checkout@v4` → `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4`
+- `actions/upload-artifact@v4` → `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4`
+SHAs were resolved via lookup_action_sha and verified by reading back the file.
+
+### Iteration 1
+
+**Fixes applied:** github-env-injection
+
+**Notes:**
+
+Fixed export_vars.sh: replaced `cat $BO_OUT >> $GITHUB_OUTPUT` with a while-read loop that splits each line into key and value, sanitizes the value using `printf '%s' "$value" | tr -d '\n\r'` to strip embedded newlines/carriage returns, and writes the sanitized pair to $GITHUB_OUTPUT. This prevents injection of additional key=value pairs via newlines embedded in Terraform output values.
 
