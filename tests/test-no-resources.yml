@@ -1,0 +1,22 @@
+name: Test no resources enabled (nothing to create)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with no resources enabled
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          aws_resource_identifier: 'test-commons'
+          aws_default_region: 'us-east-1'
+          # No AWS resources enabled — action should detect nothing to create and exit 0
+
+      - name: Assert action completed successfully
+        run: |
+          echo "Action step completed without error"
+          echo "PASS: action exited cleanly when no resources are enabled"

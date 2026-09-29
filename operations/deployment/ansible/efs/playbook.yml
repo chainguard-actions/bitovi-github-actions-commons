@@ -1,0 +1,9 @@
+- name: EFS tasks
+  hosts: bitops_servers
+  become: true
+  tasks:
+  - name: Include fetch
+    include_tasks: tasks/fetch.yml
+  - name: Mount efs
+    include_tasks: tasks/mount.yml
+    when: mount_efs

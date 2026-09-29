@@ -1,0 +1,24 @@
+name: Test bitops_code_only exits after code generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with bitops_code_only enabled
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_code_only: 'true'
+          aws_resource_identifier: 'test-commons'
+          aws_default_region: 'us-east-1'
+          aws_ec2_instance_create: 'true'
+          ansible_skip: 'true'
+
+      - name: Assert action completed successfully
+        run: |
+          echo "Action step completed without error"
+          echo "PASS: action exited cleanly with bitops_code_only=true (code generation phase only)"

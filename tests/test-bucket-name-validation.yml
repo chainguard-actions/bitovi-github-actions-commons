@@ -1,0 +1,41 @@
+name: Test bucket name validation with custom resource identifier
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with a valid custom resource identifier
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          aws_resource_identifier: 'my-valid-identifier'
+          aws_default_region: 'us-east-1'
+          # No resources enabled — exits cleanly after bucket name validation passes
+
+      - name: Assert action completed successfully
+        run: |
+          echo "Action step completed without error"
+          echo "PASS: bucket name validation passed for custom aws_resource_identifier"
+
+  test-default-identifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with default identifier (derived from GITHUB_REPOSITORY)
+        id: action
+        uses: .
+        with:
+          checkout: 'false'
+          aws_default_region: 'us-east-1'
+          # No aws_resource_identifier — uses GITHUB_REPOSITORY + branch to generate one
+          # No resources enabled — exits cleanly after bucket name validation passes
+
+      - name: Assert action completed successfully
+        run: |
+          echo "Action step completed without error"
+          echo "PASS: bucket name validation passed for auto-generated identifier"

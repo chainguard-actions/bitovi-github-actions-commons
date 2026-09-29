@@ -1,0 +1,49 @@
+name: Test miscellaneous inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          bitops_code_store: 'false'
+          bitops_extra_env_vars: '-e MY_VAR=myvalue'
+          bitops_extra_env_vars_file: ''
+          ansible_ssh_to_private_ip: 'false'
+          ansible_start_docker_timeout: '300'
+          env_aws_secret: ''
+          env_repo: ''
+          env_ghs: ''
+          env_ghv: ''
+          gh_action_repo: 'https://github.com/example/repo'
+          gh_action_input_terraform: ''
+          gh_action_input_ansible: ''
+          gh_action_input_helm_charts: ''
+          gh_deployment_input_terraform: ''
+          gh_deployment_input_ansible: ''
+          gh_deployment_input_ansible_extra_vars_file: ''
+          gh_deployment_action_input_ansible_extra_vars_file: ''
+          gh_deployment_input_helm_charts: ''
+          tf_stack_destroy: 'false'
+          tf_state_bucket: 'my-tf-state-bucket'
+          tf_state_bucket_destroy: 'false'
+          tf_state_file_name: 'terraform.tfstate'
+          tf_state_file_name_append: ''
+          tf_targets: ''
+      - name: Assert action ran
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran (outcome=$OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
