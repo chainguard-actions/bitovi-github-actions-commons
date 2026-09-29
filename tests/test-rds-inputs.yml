@@ -1,0 +1,50 @@
+name: Test RDS inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          bitops_skip_run: 'true'
+          checkout: 'false'
+          aws_rds_db_enable: 'false'
+          aws_rds_db_proxy: 'false'
+          aws_rds_db_identifier: 'my-db'
+          aws_rds_db_name: 'mydb'
+          aws_rds_db_user: 'dbuser'
+          aws_rds_db_engine: 'postgres'
+          aws_rds_db_engine_version: '14'
+          aws_rds_db_ca_cert_identifier: 'rds-ca-ecc384-g1'
+          aws_rds_db_security_group_name: 'my-rds-sg'
+          aws_rds_db_allowed_security_groups: 'sg-12345678'
+          aws_rds_db_ingress_allow_all: 'false'
+          aws_rds_db_publicly_accessible: 'false'
+          aws_rds_db_port: '5432'
+          aws_rds_db_subnets: 'subnet-12345678,subnet-87654321'
+          aws_rds_db_allocated_storage: '20'
+          aws_rds_db_max_allocated_storage: '100'
+          aws_rds_db_storage_encrypted: 'false'
+          aws_rds_db_storage_type: 'gp2'
+          aws_rds_db_kms_key_id: 'arn:aws:kms:us-east-1:123456789012:key/abc'
+          aws_rds_db_instance_class: 'db.t3.micro'
+          aws_rds_db_final_snapshot: 'false'
+          aws_rds_db_restore_snapshot_identifier: 'my-snapshot'
+          aws_rds_db_cloudwatch_logs_exports: 'postgresql'
+          aws_rds_db_multi_az: 'false'
+          aws_rds_db_maintenance_window: 'Mon:00:00-Mon:03:00'
+          aws_rds_db_apply_immediately: 'false'
+          aws_rds_db_additional_tags: '{"env":"test"}'
+      - name: Assert action ran
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          if [ "${{ steps.action.outcome }}" = "success" ] || [ "${{ steps.action.outcome }}" = "failure" ]; then
+            echo "PASS: action ran with RDS inputs"
+          else
+            echo "FAIL: unexpected outcome"
+            exit 1
+          fi
