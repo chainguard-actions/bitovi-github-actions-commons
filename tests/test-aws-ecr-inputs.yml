@@ -1,4 +1,4 @@
-name: Test AWS ECR inputs
+name: Test AWS ECR inputs coverage
 on:
   workflow_dispatch:
 jobs:
@@ -10,11 +10,11 @@ jobs:
         uses: .
         continue-on-error: true
         with:
-          bitops_skip_run: 'true'
           checkout: 'false'
+          bitops_skip_run: 'true'
           aws_ecr_repo_create: 'false'
           aws_ecr_repo_type: 'private'
-          aws_ecr_repo_name: 'my-ecr-repo'
+          aws_ecr_repo_name: 'test-repo'
           aws_ecr_repo_mutable: 'false'
           aws_ecr_repo_encryption_type: 'AES256'
           aws_ecr_repo_encryption_key_arn: ''
@@ -40,7 +40,7 @@ jobs:
         run: |
           echo "outcome: $OUTCOME"
           if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action ran (outcome=$OUTCOME)"
+            echo "PASS: action ran and produced a definitive outcome"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1

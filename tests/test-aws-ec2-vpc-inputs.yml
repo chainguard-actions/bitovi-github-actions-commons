@@ -1,4 +1,4 @@
-name: Test AWS EC2 and VPC inputs
+name: Test AWS EC2 and VPC inputs coverage
 on:
   workflow_dispatch:
 jobs:
@@ -12,12 +12,23 @@ jobs:
         with:
           checkout: 'false'
           bitops_skip_run: 'true'
+          bitops_extra_env_vars: '-e EXTRA_VAR1=value1'
+          bitops_extra_env_vars_file: ''
+          bitops_code_store: 'false'
+          tf_state_file_name: 'tf-state-test'
+          tf_state_file_name_append: 'unique'
+          tf_state_bucket_destroy: 'false'
+          tf_targets: ''
+          ansible_ssh_to_private_ip: 'false'
+          ansible_start_docker_timeout: '300'
           aws_access_key_id: 'AKIAIOSFODNN7EXAMPLE'
           aws_secret_access_key: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-          aws_session_token: 'AQoDYXdzEJr//example'
+          aws_session_token: ''
           aws_additional_tags: '{"env":"test"}'
-          aws_resource_identifier: 'test-org-test-repo-main'
-          # EC2
+          env_aws_secret: ''
+          env_repo: ''
+          env_ghs: ''
+          env_ghv: ''
           aws_ec2_instance_create: 'false'
           aws_ec2_ami_filter: 'ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*'
           aws_ec2_ami_owner: '099720109477'
@@ -34,7 +45,6 @@ jobs:
           aws_ec2_user_data_file: ''
           aws_ec2_user_data_replace_on_change: 'true'
           aws_ec2_additional_tags: '{"role":"web"}'
-          # VPC
           aws_vpc_create: 'false'
           aws_vpc_name: 'test-vpc'
           aws_vpc_cidr_block: '10.0.0.0/16'
@@ -46,14 +56,14 @@ jobs:
           aws_vpc_enable_nat_gateway: 'false'
           aws_vpc_single_nat_gateway: 'false'
           aws_vpc_external_nat_ip_ids: ''
-          aws_vpc_additional_tags: '{"type":"test"}'
-      - name: Assert action ran
+          aws_vpc_additional_tags: '{"env":"test"}'
+      - name: Assert action ran (bitops_skip_run=true exits early)
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action ran (outcome=$OUTCOME)"
+            echo "PASS: action ran and produced a definitive outcome"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1

@@ -8,10 +8,9 @@ if [[ "$TF_STACK_DESTROY" != "true" ]]; then
   if [ -s $BO_OUT ]; then
     echo "Outputting bo-out.env to GITHUB_OUTPUT"
     while IFS= read -r line || [ -n "$line" ]; do
-      key="${line%%=*}"
-      value="${line#*=}"
-      safe_value="$(printf '%s' "$value" | tr -d '\n\r')"
-      printf '%s=%s\n' "$key" "$safe_value" >> "$GITHUB_OUTPUT"
+      # Sanitize each line: strip embedded carriage returns and newlines from values
+      safe_line=$(printf '%s' "$line" | tr -d '\n\r')
+      printf '%s\n' "$safe_line" >> "$GITHUB_OUTPUT"
     done < "$BO_OUT"
   else
     echo "BO_OUT is not a file or it's empty"
