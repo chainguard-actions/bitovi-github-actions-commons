@@ -1,4 +1,4 @@
-name: Test AWS ECS inputs coverage
+name: Test AWS ECS and ECR inputs coverage
 on:
   workflow_dispatch:
 jobs:
@@ -10,14 +10,14 @@ jobs:
         uses: .
         continue-on-error: true
         with:
-          checkout: 'false'
           bitops_skip_run: 'true'
+          checkout: 'false'
           aws_ecs_enable: 'false'
-          aws_ecs_service_name: 'test-service'
-          aws_ecs_cluster_name: 'test-cluster'
+          aws_ecs_service_name: 'my-ecs-service'
+          aws_ecs_cluster_name: 'my-ecs-cluster'
           aws_ecs_service_launch_type: 'FARGATE'
           aws_ecs_task_type: 'FARGATE'
-          aws_ecs_task_name: 'test-task'
+          aws_ecs_task_name: 'my-ecs-task'
           aws_ecs_task_ignore_definition: 'false'
           aws_ecs_task_execution_role: 'ecsTaskExecutionRole'
           aws_ecs_task_json_definition_file: ''
@@ -28,7 +28,7 @@ jobs:
           aws_ecs_container_mem: '512'
           aws_ecs_node_count: '1'
           aws_ecs_app_image: 'nginx:latest'
-          aws_ecs_security_group_name: 'test-ecs-sg'
+          aws_ecs_security_group_name: 'my-ecs-sg'
           aws_ecs_assign_public_ip: 'false'
           aws_ecs_container_port: '80'
           aws_ecs_lb_port: '80'
@@ -45,7 +45,31 @@ jobs:
           aws_ecs_cloudwatch_lg_name: ''
           aws_ecs_cloudwatch_skip_destroy: 'false'
           aws_ecs_cloudwatch_retention_days: '14'
-          aws_ecs_additional_tags: '{"ecs":"test"}'
+          aws_ecs_additional_tags: '{"env":"test"}'
+          aws_ecr_repo_create: 'false'
+          aws_ecr_repo_type: 'private'
+          aws_ecr_repo_name: 'my-ecr-repo'
+          aws_ecr_repo_mutable: 'false'
+          aws_ecr_repo_encryption_type: 'AES256'
+          aws_ecr_repo_encryption_key_arn: ''
+          aws_ecr_repo_force_destroy: 'false'
+          aws_ecr_repo_image_scan: 'true'
+          aws_ecr_registry_scan_rule: '[]'
+          aws_ecr_registry_pull_through_cache_rules: ''
+          aws_ecr_registry_scan_config: ''
+          aws_ecr_registry_replication_rules_input: '[]'
+          aws_ecr_repo_policy_attach: 'true'
+          aws_ecr_repo_policy_create: 'true'
+          aws_ecr_repo_policy_input: ''
+          aws_ecr_repo_read_arn: ''
+          aws_ecr_repo_write_arn: ''
+          aws_ecr_repo_read_external_aws_account: ''
+          aws_ecr_repo_write_external_aws_account: ''
+          aws_ecr_repo_read_arn_lambda: ''
+          aws_ecr_lifecycle_policy_input: ''
+          aws_ecr_public_repo_catalog: '{}'
+          aws_ecr_registry_policy_input: ''
+          aws_ecr_additional_tags: '{"env":"test"}'
       - name: Assert action ran
         env:
           OUTCOME: ${{ steps.action.outcome }}

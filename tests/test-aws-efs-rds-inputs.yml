@@ -1,4 +1,4 @@
-name: Test AWS RDS inputs coverage
+name: Test AWS EFS and RDS inputs coverage
 on:
   workflow_dispatch:
 jobs:
@@ -10,17 +10,36 @@ jobs:
         uses: .
         continue-on-error: true
         with:
-          checkout: 'false'
           bitops_skip_run: 'true'
+          checkout: 'false'
+          aws_efs_create: 'false'
+          aws_efs_fs_id: 'fs-12345678'
+          aws_efs_create_mount_target: 'false'
+          aws_efs_create_ha: 'false'
+          aws_efs_vol_encrypted: 'false'
+          aws_efs_kms_key_id: ''
+          aws_efs_performance_mode: 'generalPurpose'
+          aws_efs_throughput_mode: 'bursting'
+          aws_efs_throughput_speed: ''
+          aws_efs_security_group_name: 'my-efs-sg'
+          aws_efs_allowed_security_groups: ''
+          aws_efs_ingress_allow_all: 'false'
+          aws_efs_create_replica: 'false'
+          aws_efs_replication_destination: 'us-west-2'
+          aws_efs_enable_backup_policy: 'false'
+          aws_efs_transition_to_inactive: ''
+          aws_efs_mount_target: '/data'
+          aws_efs_ec2_mount_point: '/mnt/efs'
+          aws_efs_additional_tags: '{"env":"test"}'
           aws_rds_db_enable: 'false'
           aws_rds_db_proxy: 'false'
-          aws_rds_db_identifier: 'test-db'
-          aws_rds_db_name: 'testdb'
+          aws_rds_db_identifier: 'my-db'
+          aws_rds_db_name: 'mydb'
           aws_rds_db_user: 'dbuser'
           aws_rds_db_engine: 'postgres'
           aws_rds_db_engine_version: '14'
           aws_rds_db_ca_cert_identifier: 'rds-ca-ecc384-g1'
-          aws_rds_db_security_group_name: 'test-rds-sg'
+          aws_rds_db_security_group_name: 'my-rds-sg'
           aws_rds_db_allowed_security_groups: ''
           aws_rds_db_ingress_allow_all: 'false'
           aws_rds_db_publicly_accessible: 'false'
@@ -49,7 +68,7 @@ jobs:
           aws_rds_db_backup_retention_period: '7'
           aws_rds_db_backup_window: '03:00-06:00'
           aws_rds_db_copy_tags_to_snapshot: 'false'
-          aws_rds_db_additional_tags: '{"rds":"test"}'
+          aws_rds_db_additional_tags: '{"env":"test"}'
       - name: Assert action ran
         env:
           OUTCOME: ${{ steps.action.outcome }}

@@ -8,16 +8,16 @@ function alpha_only() {
 }
 
 echo "::group::In Deploy"
-GITHUB_REPO_NAME=$(echo $GITHUB_REPOSITORY | sed 's/^.*\///')
+GITHUB_REPO_NAME=$(echo "$GITHUB_REPOSITORY" | sed 's/^.*\///')
 
 # Ensuring variable is set to true
-if [ "$(alpha_only $ANSIBLE_SKIP)" == "true" ]; then
+if [ "$(alpha_only "$ANSIBLE_SKIP")" == "true" ]; then
   ANSIBLE_SKIP="true"
 fi
 
 # Validating if Terraform is set to destroy, and avoid Ansible
 TERRAFORM_COMMAND=""
-if [ "$(alpha_only $TF_STACK_DESTROY)" == "true" ]; then
+if [ "$(alpha_only "$TF_STACK_DESTROY")" == "true" ]; then
   TERRAFORM_COMMAND="destroy"
   ANSIBLE_SKIP="true"
 fi
@@ -30,26 +30,26 @@ else
 fi
 
 # Generate Github identifiers vars
-export GITHUB_IDENTIFIER="$($GITHUB_ACTION_PATH/operations/_scripts/generate/generate_identifier.sh)"
-export GITHUB_IDENTIFIER_SS="$($GITHUB_ACTION_PATH/operations/_scripts/generate/generate_identifier.sh 30)"
+export GITHUB_IDENTIFIER="$("$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_identifier.sh")"
+export GITHUB_IDENTIFIER_SS="$("$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_identifier.sh" 30)"
 
 # Generate buckets identifiers and check them agains AWS Rules 
-export TF_STATE_BUCKET="$(/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_buckets_identifiers.sh tf | xargs)"
-/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/deploy/check_bucket_name.sh $TF_STATE_BUCKET
+export TF_STATE_BUCKET="$(/bin/bash "$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_buckets_identifiers.sh" tf | xargs)"
+/bin/bash "$GITHUB_ACTION_PATH/operations/_scripts/deploy/check_bucket_name.sh" "$TF_STATE_BUCKET"
 #export AWS_ELB_ACCESS_LOG_BUCKET_NAME="$(/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_buckets_identifiers.sh lb | xargs)"
 #/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/deploy/check_bucket_name.sh $AWS_ELB_ACCESS_LOG_BUCKET_NAME
 
 # Generate the provider.tf file
-/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_provider.sh
+/bin/bash "$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_provider.sh"
 
 # Generate terraform variables
-/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_vars_terraform.sh
+/bin/bash "$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_vars_terraform.sh"
 
 # Generate app repo
-/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_app_repo.sh ansible/clone_repo
+/bin/bash "$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_app_repo.sh" ansible/clone_repo
 
 # Generate bitops config
-/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_bitops_config.sh
+/bin/bash "$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_bitops_config.sh"
 # If nothing was generated, then we don't have an instance or cluster to connect. Exit.
 if [ ! -s "$GITHUB_ACTION_PATH/operations/deployment/bitops.config.yaml" ]; then
   echo "There is nothing to be created or destroyed. Exiting."
@@ -57,20 +57,21 @@ if [ ! -s "$GITHUB_ACTION_PATH/operations/deployment/bitops.config.yaml" ]; then
 fi
 
 # Generate bitops incoming repos config if any
-/bin/bash $GITHUB_ACTION_PATH/operations/_scripts/generate/generate_bitops_incoming.sh
+/bin/bash "$GITHUB_ACTION_PATH/operations/_scripts/generate/generate_bitops_incoming.sh"
 
 # Generate bitops incoming repos config
+BITOPS_EXTRA_ENV_VARS_FILE_ARGS=()
 if [ -n "$GH_ACTION_REPO" ] && [ -n "$BITOPS_EXTRA_ENV_VARS_FILE" ]; then
-  if [ -s $GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE ]; then
-    cat $GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE
-    BITOPS_EXTRA_ENV_VARS_FILE="--env-file $GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE"
+  if [ -s "$GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE" ]; then
+    cat "$GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE"
+    BITOPS_EXTRA_ENV_VARS_FILE_ARGS=(--env-file "$GH_ACTION_REPO/$BITOPS_EXTRA_ENV_VARS_FILE")
   else
     echo "File $BITOPS_EXTRA_ENV_VARS_FILE missing or empty"
   fi
 fi
 
 echo "Final BitOps config file"
-cat $GITHUB_ACTION_PATH/operations/deployment/bitops.config.yaml
+cat "$GITHUB_ACTION_PATH/operations/deployment/bitops.config.yaml"
 
 ## Ensuring bucket get's destroyed only if everything is set to be destroyed
 if [[ $(alpha_only "$TF_STATE_BUCKET_DESTROY") == true ]] && ! [[ $(alpha_only "$TF_STACK_DESTROY") == true ]] ; then
@@ -96,8 +97,9 @@ if [ -s "$GITHUB_WORKSPACE/$ENV_REPO" ] && [ -n "$ENV_REPO" ]; then
 fi
 
 # Bypass all the 'BITOPS_' ENV vars to docker
+BITOPS_EXTRA_ENV_VARS_ARGS=()
 for i in $(env | grep BITOPS_); do
-  BITOPS_EXTRA_ENV_VARS="${BITOPS_EXTRA_ENV_VARS} -e ${i}"
+  BITOPS_EXTRA_ENV_VARS_ARGS+=(-e "${i}")
 done
 
 if [[ $(alpha_only "$BITOPS_CODE_ONLY") == "true" ]]; then
@@ -121,9 +123,9 @@ docker run --rm --name bitops \
 -e TF_STATE_BUCKET="${TF_STATE_BUCKET}" \
 -e TF_STATE_BUCKET_DESTROY="${TF_STATE_BUCKET_DESTROY}" \
 -e DEFAULT_FOLDER_NAME="_default" \
-${BITOPS_EXTRA_ENV_VARS_FILE} \
-${BITOPS_EXTRA_ENV_VARS} \
--v $(echo $GITHUB_ACTION_PATH)/operations:/opt/bitops_deployment \
+"${BITOPS_EXTRA_ENV_VARS_FILE_ARGS[@]}" \
+"${BITOPS_EXTRA_ENV_VARS_ARGS[@]}" \
+-v "$(echo "$GITHUB_ACTION_PATH")/operations":/opt/bitops_deployment \
 bitovi/bitops:2.6.0
 BITOPS_RESULT=$?
 echo "::endgroup::"

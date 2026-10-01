@@ -10,11 +10,11 @@ jobs:
         uses: .
         continue-on-error: true
         with:
-          checkout: 'false'
           bitops_skip_run: 'true'
+          checkout: 'false'
           aws_eks_create: 'false'
-          aws_eks_security_group_name_cluster: 'test-eks-cluster-sg'
-          aws_eks_security_group_name_node: 'test-eks-node-sg'
+          aws_eks_security_group_name_cluster: 'my-eks-cluster-sg'
+          aws_eks_security_group_name_node: 'my-eks-node-sg'
           aws_eks_environment: 'env'
           aws_eks_management_cidr: '0.0.0.0/0'
           aws_eks_allowed_ports: '443'
@@ -33,7 +33,7 @@ jobs:
           aws_eks_desired_capacity: '2'
           aws_eks_max_size: '4'
           aws_eks_min_size: '1'
-          aws_eks_additional_tags: '{"eks":"test"}'
+          aws_eks_additional_tags: '{"env":"test"}'
       - name: Assert action ran
         env:
           OUTCOME: ${{ steps.action.outcome }}
