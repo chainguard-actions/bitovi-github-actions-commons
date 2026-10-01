@@ -1,0 +1,44 @@
+name: Test Docker, Ansible, env files, and deployment repo inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          ansible_skip: 'true'
+          ansible_ssh_to_private_ip: 'false'
+          ansible_start_docker_timeout: '300'
+          docker_install: 'false'
+          docker_remove_orphans: 'false'
+          docker_full_cleanup: 'false'
+          docker_repo_app_directory: '.'
+          docker_repo_app_directory_cleanup: 'false'
+          docker_backup_retention: '5'
+          docker_efs_mount_target: '/data'
+          docker_cloudwatch_enable: 'false'
+          docker_cloudwatch_lg_name: '/aws/docker/my-app'
+          docker_cloudwatch_skip_destroy: 'false'
+          docker_cloudwatch_retention_days: '14'
+          env_aws_secret: ''
+          env_repo: '.env'
+          env_ghs: ''
+          env_ghv: ''
+          gh_deployment_input_terraform: ''
+          gh_deployment_input_ansible: ''
+          gh_deployment_input_ansible_extra_vars_file: ''
+          gh_deployment_action_input_ansible_extra_vars_file: ''
+          gh_deployment_input_helm_charts: ''
+          gh_action_repo: 'https://github.com/example/repo'
+          gh_action_input_terraform: ''
+          gh_action_input_ansible: ''
+          gh_action_input_helm_charts: ''
+      - name: Assert action completed
+        run: |
+          echo "Action completed successfully with Docker, Ansible, env, and deployment repo inputs"
+          echo "PASS"

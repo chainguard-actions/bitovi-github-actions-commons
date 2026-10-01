@@ -1,4 +1,4 @@
-name: Test EC2 inputs
+name: Test AWS EC2 inputs
 on:
   workflow_dispatch:
 jobs:
@@ -8,7 +8,6 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: action
         uses: .
-        continue-on-error: true
         with:
           checkout: 'false'
           bitops_skip_run: 'true'
@@ -28,14 +27,7 @@ jobs:
           aws_ec2_user_data_file: ''
           aws_ec2_user_data_replace_on_change: 'true'
           aws_ec2_additional_tags: '{"env":"test"}'
-      - name: Assert action ran
-        env:
-          OUTCOME: ${{ steps.action.outcome }}
+      - name: Assert action completed
         run: |
-          echo "outcome: $OUTCOME"
-          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action ran (outcome=$OUTCOME)"
-          else
-            echo "FAIL: unexpected outcome '$OUTCOME'"
-            exit 1
-          fi
+          echo "Action completed successfully with EC2 inputs"
+          echo "PASS"

@@ -10,34 +10,81 @@
 
 **Harden Agent Version:** `2`
 
-Action **bitovi--github-actions-commons/v2.0.9** was hardened automatically. 2 finding(s) were identified and resolved across 1 iteration(s).
+Action **bitovi--github-actions-commons/v2.0.9** was hardened automatically. 2 finding(s) were identified and resolved across 3 iteration(s).
 
 ## Findings Fixed
 
 ### unpinned-uses (severity: high)
 
-action.yaml references two GitHub Actions using mutable tag refs instead of full 40-character SHA digests. `actions/checkout@v4` and `actions/upload-artifact@v4` are both pinned to version tags, which can be silently redirected to different (potentially malicious) commits if the upstream repository is compromised. They must be pinned to their full commit SHA (e.g., `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4`).
+Two `uses:` references in action.yaml use mutable tag refs (@v4) instead of pinned 40-character SHA commit digests. An attacker who compromises the upstream action repository could push a malicious commit under the same tag and have it execute in all workflows using this action.
+
+Failing references:
+- `uses: actions/checkout@v4` (line ~1467)
+- `uses: actions/upload-artifact@v4` (line ~1490)
+
+These should be pinned to their full SHA digests, e.g.:
+  `uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4`
+  `uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4`
 
 Locations:
 
-- `action.yaml:1`
-- `action.yaml:1`
+- `action.yaml:1467`
+- `action.yaml:1490`
 
-### github-env-injection (severity: high)
+### script-injection (severity: high)
 
-In `operations/_scripts/deploy/export_vars.sh` (invoked from the `run:` block of the 'Deploy with BitOps' step in action.yaml), the entire contents of `bo-out.env` are written directly to `$GITHUB_OUTPUT` via `cat $BO_OUT >> $GITHUB_OUTPUT` without newline sanitization. The `bo-out.env` file is generated from `terraform output` and can contain values derived from user-controlled inputs (e.g., branch names, resource identifiers, tag values). A value containing embedded newlines could inject additional `key=value` pairs into `$GITHUB_OUTPUT`, allowing an attacker to overwrite outputs consumed by downstream steps. The fix requires sanitizing each value with `printf '%s' "$value" | tr -d '\n\r'` before writing to the special environment file.
+Sub-rule (b): The env var `GITHUB_ACTION_PATH` is sourced from `${{ github.action_path }}` (a `github.*` context value) in the `env:` block of two composite action steps, then used **unquoted** in the `run:` shell commands. An unquoted shell expansion allows the shell to parse metacharacters out of the value.
+
+Affected steps and offending lines:
+
+1. "Deploy with BitOps" step — run block:
+   ```
+   $GITHUB_ACTION_PATH/operations/_scripts/deploy/deploy.sh
+   $GITHUB_ACTION_PATH/operations/_scripts/deploy/export_vars.sh
+   ```
+
+2. "Generate Summary Output" step — run block:
+   ```
+   $GITHUB_ACTION_PATH/operations/_scripts/deploy/summary.sh
+   ```
+
+Fix: quote the variable in all uses, e.g. `"$GITHUB_ACTION_PATH"/operations/_scripts/deploy/deploy.sh`
 
 Locations:
 
-- `operations/_scripts/deploy/export_vars.sh:10`
+- `action.yaml:1471`
+- `action.yaml:1487`
 
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** unpinned-uses, github-env-injection
+**Fixes applied:** unpinned-uses, script-injection
 
 **Notes:**
 
-1. Pinned `actions/checkout@v4` to `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4` in action.yaml. 2. Pinned `actions/upload-artifact@v4` to `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4` in action.yaml. 3. Fixed `operations/_scripts/deploy/export_vars.sh`: replaced the unsafe `cat $BO_OUT >> $GITHUB_OUTPUT` with a loop that reads each line, splits key from value on the first '=', sanitizes the value with `printf '%s' "$value" | tr -d '\n\r'`, and writes the sanitized pair to $GITHUB_OUTPUT — preventing newline injection from terraform output values.
+Fixed two unpinned action references: actions/checkout@v4 → @11d5960a326750d5838078e36cf38b85af677262 and actions/upload-artifact@v4 → @ea165f8d65b6e75b540449e92b4886f43607fa02. Fixed three unquoted $GITHUB_ACTION_PATH usages in run blocks (deploy.sh, export_vars.sh, summary.sh) by quoting them as "$GITHUB_ACTION_PATH"/... to prevent shell metacharacter interpretation.
+
+### Iteration 2
+
+**Fixes applied:** invalid-yaml
+
+**Notes:**
+
+Fixed YAML parse error at line 1759 in hardened/action/action.yaml. The line `run: "$GITHUB_ACTION_PATH"/operations/_scripts/deploy/summary.sh` was causing a YAML parsing failure because YAML interpreted the double-quoted `"$GITHUB_ACTION_PATH"` as a complete scalar and rejected the trailing path. Converted to a block scalar (`run: |`) with the command indented on the next line, which makes the entire command a literal string and resolves the parse error.
+
+### Iteration 3
+
+**Fixes applied:** github-env-injection, script-injection
+
+**Notes:**
+
+Fixed two security findings:
+
+1. export_vars.sh (github-env-injection): Replaced `cat $BO_OUT >> $GITHUB_OUTPUT` with a sanitizing while loop that reads each line, strips newlines/carriage returns via `tr -d '\n\r'`, then writes the safe value to GITHUB_OUTPUT. This prevents terraform output values (which can be influenced by attacker-controlled inputs) from injecting arbitrary key=value pairs into GITHUB_OUTPUT via embedded newlines.
+
+2. deploy.sh (script-injection, 3 locations):
+   - BITOPS_EXTRA_ENV_VARS_FILE: Converted from unquoted string expansion to a bash array `BITOPS_EXTRA_ENV_VARS_FILE_ARGS=(--env-file "$path")`, safely expanded as `"${BITOPS_EXTRA_ENV_VARS_FILE_ARGS[@]}"` in docker run.
+   - BITOPS_EXTRA_ENV_VARS: Converted from unquoted string expansion to a bash array `BITOPS_EXTRA_ENV_VARS_ARGS` built with `+=(-e "$i")` in a while loop, safely expanded as `"${BITOPS_EXTRA_ENV_VARS_ARGS[@]}"` in docker run.
+   - GITHUB_ACTION_PATH: Removed the unnecessary `$(echo $GITHUB_ACTION_PATH)` command substitution and replaced with properly quoted `"${GITHUB_ACTION_PATH}/operations:/opt/bitops_deployment"`.
 

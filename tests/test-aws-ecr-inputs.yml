@@ -11,17 +11,16 @@ jobs:
         with:
           checkout: 'false'
           bitops_skip_run: 'true'
-          # ECR inputs
           aws_ecr_repo_create: 'false'
           aws_ecr_repo_type: 'private'
-          aws_ecr_repo_name: 'test-repo'
+          aws_ecr_repo_name: 'my-ecr-repo'
           aws_ecr_repo_mutable: 'false'
           aws_ecr_repo_encryption_type: 'AES256'
           aws_ecr_repo_encryption_key_arn: ''
           aws_ecr_repo_force_destroy: 'false'
           aws_ecr_repo_image_scan: 'true'
           aws_ecr_registry_scan_rule: '[]'
-          aws_ecr_registry_pull_through_cache_rules: ''
+          aws_ecr_registry_pull_through_cache_rules: '{}'
           aws_ecr_registry_scan_config: ''
           aws_ecr_registry_replication_rules_input: '[]'
           aws_ecr_repo_policy_attach: 'true'
@@ -36,7 +35,7 @@ jobs:
           aws_ecr_public_repo_catalog: '{}'
           aws_ecr_registry_policy_input: ''
           aws_ecr_additional_tags: '{"env":"test"}'
-      - name: Assert action ran
+      - name: Assert action completed
         run: |
-          echo "Action completed with bitops_skip_run=true"
+          echo "Action completed successfully with ECR inputs"
           echo "PASS"

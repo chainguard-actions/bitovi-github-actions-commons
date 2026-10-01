@@ -1,0 +1,25 @@
+name: Test BitOps extra env vars and Terraform state inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          checkout: 'false'
+          bitops_skip_run: 'true'
+          bitops_extra_env_vars: '-e MY_VAR=myvalue'
+          bitops_extra_env_vars_file: ''
+          bitops_code_store: 'false'
+          tf_state_file_name: 'my-tf-state'
+          tf_state_file_name_append: 'unique'
+          tf_state_bucket: 'my-tf-state-bucket'
+          tf_state_bucket_destroy: 'false'
+          tf_targets: ''
+      - name: Assert action completed
+        run: |
+          echo "Action completed successfully with BitOps extra env vars and Terraform state inputs"
+          echo "PASS"
