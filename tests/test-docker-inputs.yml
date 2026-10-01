@@ -19,7 +19,7 @@ jobs:
           docker_repo_app_directory_cleanup: 'false'
           docker_efs_mount_target: '/data'
           docker_cloudwatch_enable: 'false'
-          docker_cloudwatch_lg_name: '/aws/docker/my-app'
+          docker_cloudwatch_lg_name: 'test-docker-logs'
           docker_cloudwatch_skip_destroy: 'false'
           docker_cloudwatch_retention_days: '14'
       - name: Assert action ran

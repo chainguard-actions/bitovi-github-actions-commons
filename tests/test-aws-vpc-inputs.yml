@@ -14,7 +14,7 @@ jobs:
           bitops_skip_run: 'true'
           aws_access_key_id: 'AKIAIOSFODNN7EXAMPLE'
           aws_secret_access_key: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-          aws_session_token: 'AQoDYXdzEJr...'
+          aws_session_token: 'AQoDYXdzEJr//example'
           aws_additional_tags: '{"env":"test"}'
           aws_vpc_create: 'false'
           aws_vpc_name: 'test-vpc'
@@ -26,7 +26,7 @@ jobs:
           aws_vpc_subnet_id: 'subnet-12345678'
           aws_vpc_enable_nat_gateway: 'false'
           aws_vpc_single_nat_gateway: 'false'
-          aws_vpc_external_nat_ip_ids: 'eipalloc-12345678'
+          aws_vpc_external_nat_ip_ids: ''
           aws_vpc_additional_tags: '{"env":"test"}'
       - name: Assert action ran
         env:
