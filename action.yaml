@@ -1467,7 +1467,7 @@ runs:
     # upload generated artifacts to GitHub if enabled
     - if: ${{ inputs.bitops_code_store == 'true' }}
       name: Archive production artifacts
-      uses: chainguard-actions/actions-upload-artifact@467841b52c51378ad2d3805b51d281083b128bbc # v3
+      uses: chainguard-actions/actions-upload-artifact@9dcdbf6e32ea303068b16cb8c638bd3aa90684fd # v3
       with:
         name: Storing code - Terraform
         retention-days: 5
